@@ -1,0 +1,756 @@
+openapi: 3.0.3
+info:
+  title: LeadForge AI API
+  description: |
+    Complete API documentation for LeadForge AI - an automation platform that finds/tracks leads, 
+    drafts and sends outreach, chats with prospects, extracts requirements, and generates/deploys websites.
+    
+    ## Authentication
+    Currently no authentication required for local development.
+    Production deployments should add JWT or API key authentication.
+    
+    ## Base URL
+    - Development: `http://localhost:1100`
+    - Production: Your deployed backend URL
+    
+  version: 1.0.0
+  contact:
+    name: LeadForge AI Support
+    email: support@leadforge.ai
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:1100
+    description: Local development server
+  - url: https://api.leadforge.ai
+    description: Production server (if deployed)
+
+tags:
+  - name: Health
+    description: Health check endpoints
+  - name: Leads
+    description: Lead management operations
+  - name: Outreach
+    description: Email outreach and approval workflow
+  - name: Chat
+    description: Conversation management with AI
+  - name: Requirements
+    description: Requirements extraction from conversations
+  - name: Build
+    description: Website generation and deployment
+  - name: Discovery
+    description: Lead discovery and enrichment
+  - name: Activities
+    description: Real-time agent activity tracking
+  - name: Tracking
+    description: Email tracking (opens and clicks)
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Check if the API is running
+      responses:
+        '200':
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+
+  /leads:
+    get:
+      tags:
+        - Leads
+      summary: List all leads
+      description: Retrieve a list of all leads with their conversations and projects
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Lead'
+    
+    post:
+      tags:
+        - Leads
+      summary: Create a new lead
+      description: Add a new lead to the system
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                name:
+                  type: string
+                  example: "John Doe"
+                email:
+                  type: string
+                  format: email
+                  example: "john@example.com"
+                company:
+                  type: string
+                  example: "Acme Corp"
+                phone:
+                  type: string
+                  example: "+1-555-0123"
+                source:
+                  type: string
+                  example: "Website"
+                notes:
+                  type: string
+      responses:
+        '201':
+          description: Lead created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lead'
+
+  /leads/{id}:
+    get:
+      tags:
+        - Leads
+      summary: Get lead by ID
+      description: Retrieve detailed information about a specific lead
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Lead ID
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeadWithDetails'
+        '404':
+          description: Lead not found
+
+  /outreach/draft:
+    post:
+      tags:
+        - Outreach
+      summary: Draft outreach email
+      description: AI drafts a personalized outreach email for a lead
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - leadId
+              properties:
+                leadId:
+                  type: string
+                  description: ID of the lead to draft outreach for
+      responses:
+        '201':
+          description: Email drafted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conversation'
+
+  /outreach/pending:
+    get:
+      tags:
+        - Outreach
+      summary: Get pending outreach approvals
+      description: List all drafted emails awaiting human approval
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Message'
+
+  /outreach/{messageId}/approve:
+    post:
+      tags:
+        - Outreach
+      summary: Approve and send outreach email
+      description: Approve a drafted email and send it to the lead
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Email sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+
+  /outreach/{messageId}/reject:
+    post:
+      tags:
+        - Outreach
+      summary: Reject drafted email
+      description: Discard a drafted email without sending
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Email rejected successfully
+
+  /chat/{conversationId}/reply:
+    post:
+      tags:
+        - Chat
+      summary: Add lead reply and get AI response
+      description: Submit a lead's reply and get an AI-generated response
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - content
+              properties:
+                content:
+                  type: string
+                  description: The lead's reply message
+      responses:
+        '201':
+          description: Reply processed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  leadMessage:
+                    $ref: '#/components/schemas/Message'
+                  agentMessage:
+                    $ref: '#/components/schemas/Message'
+
+  /chat/{conversationId}:
+    get:
+      tags:
+        - Chat
+      summary: Get conversation
+      description: Retrieve full conversation history
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conversation'
+
+  /requirements/{conversationId}/extract:
+    post:
+      tags:
+        - Requirements
+      summary: Extract requirements
+      description: AI analyzes conversation and extracts structured requirements
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '201':
+          description: Requirements extracted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+
+  /requirements/project/{projectId}:
+    get:
+      tags:
+        - Requirements
+      summary: Get project requirements
+      description: View extracted requirements for a project
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+
+  /build/{projectId}:
+    post:
+      tags:
+        - Build
+      summary: Build and deploy website
+      description: Generate Next.js site from requirements and deploy to Vercel
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Build and deployment successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  project:
+                    $ref: '#/components/schemas/Project'
+                  localPath:
+                    type: string
+                    description: Local path where project was written
+
+  /build/{projectId}/status:
+    get:
+      tags:
+        - Build
+      summary: Get build status
+      description: Check the status of a build/deployment
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [READY_TO_BUILD, BUILDING, DEPLOYED, BUILD_FAILED]
+                  deployUrl:
+                    type: string
+                  buildLog:
+                    type: string
+
+  /discovery/search:
+    post:
+      tags:
+        - Discovery
+      summary: Search for leads
+      description: Search for leads using Apollo.io, Hunter.io, or Clearbit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                personTitles:
+                  type: array
+                  items:
+                    type: string
+                  example: ["CEO", "CTO", "Founder"]
+                organizationIndustryTagIds:
+                  type: array
+                  items:
+                    type: string
+                organizationNumEmployeesRanges:
+                  type: string
+                  example: "51,200"
+                personLocations:
+                  type: array
+                  items:
+                    type: string
+                  example: ["San Francisco, CA"]
+                page:
+                  type: integer
+                  default: 1
+                perPage:
+                  type: integer
+                  default: 25
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  perPage:
+                    type: integer
+                  people:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DiscoveredLead'
+
+  /discovery/stats:
+    get:
+      tags:
+        - Discovery
+      summary: Get discovery statistics
+      description: Retrieve statistics about lead discovery
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalDiscovered:
+                    type: integer
+                  addedToCRM:
+                    type: integer
+
+  /activities:
+    get:
+      tags:
+        - Activities
+      summary: Get recent activities
+      description: Retrieve recent agent activities
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+          description: Number of activities to return
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Activity'
+
+  /activities/stats:
+    get:
+      tags:
+        - Activities
+      summary: Get activity statistics
+      description: Retrieve statistics for all agents
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  outreach:
+                    type: object
+                    properties:
+                      pending:
+                        type: integer
+                      sent:
+                        type: integer
+                  chat:
+                    type: object
+                    properties:
+                      active:
+                        type: integer
+                  requirements:
+                    type: object
+                    properties:
+                      extracted:
+                        type: integer
+                  developer:
+                    type: object
+                    properties:
+                      deployed:
+                        type: integer
+                      building:
+                        type: integer
+
+  /activities/agent/{agentName}/status:
+    get:
+      tags:
+        - Activities
+      summary: Get agent status
+      description: Get current status of a specific agent
+      parameters:
+        - name: agentName
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [outreach, chat, requirements, developer]
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [idle, working, error]
+                  lastActivity:
+                    $ref: '#/components/schemas/Activity'
+
+  /track/open/{messageId}:
+    get:
+      tags:
+        - Tracking
+      summary: Track email open
+      description: Tracking pixel endpoint (returns 1x1 transparent GIF)
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Tracking pixel
+          content:
+            image/gif:
+              schema:
+                type: string
+                format: binary
+
+  /track/click/{messageId}/{linkId}:
+    get:
+      tags:
+        - Tracking
+      summary: Track link click
+      description: Track when a link in an email is clicked
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: linkId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '302':
+          description: Redirect to original URL
+
+  /track/stats/{messageId}:
+    get:
+      tags:
+        - Tracking
+      summary: Get tracking statistics
+      description: Retrieve open and click statistics for an email
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  opens:
+                    type: integer
+                  clicks:
+                    type: integer
+                  events:
+                    type: array
+                    items:
+                      type: object
+
+components:
+  schemas:
+    Lead:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        company:
+          type: string
+        phone:
+          type: string
+        source:
+          type: string
+        status:
+          type: string
+          enum: [NEW, OUTREACH_PENDING_APPROVAL, OUTREACH_SENT, REPLIED, QUALIFIED, DISQUALIFIED]
+        notes:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    LeadWithDetails:
+      allOf:
+        - $ref: '#/components/schemas/Lead'
+        - type: object
+          properties:
+            conversations:
+              type: array
+              items:
+                $ref: '#/components/schemas/Conversation'
+            projects:
+              type: array
+              items:
+                $ref: '#/components/schemas/Project'
+
+    Conversation:
+      type: object
+      properties:
+        id:
+          type: string
+        leadId:
+          type: string
+        subject:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/Message'
+
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+        conversationId:
+          type: string
+        role:
+          type: string
+          enum: [AGENT, LEAD]
+        content:
+          type: string
+        approved:
+          type: boolean
+        sentAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    Project:
+      type: object
+      properties:
+        id:
+          type: string
+        leadId:
+          type: string
+        name:
+          type: string
+        requirements:
+          type: object
+        status:
+          type: string
+          enum: [GATHERING_REQUIREMENTS, READY_TO_BUILD, BUILDING, DEPLOYED, BUILD_FAILED]
+        deployUrl:
+          type: string
+        buildLog:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Activity:
+      type: object
+      properties:
+        id:
+          type: string
+        agent:
+          type: string
+          enum: [outreach, chat, requirements, developer]
+        action:
+          type: string
+        leadId:
+          type: string
+        conversationId:
+          type: string
+        projectId:
+          type: string
+        status:
+          type: string
+          enum: [started, completed, error]
+        metadata:
+          type: object
+        timestamp:
+          type: string
+          format: date-time
+
+    DiscoveredLead:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        company:
+          type: string
+        source:
+          type: string
+        notes:
+          type: string
+        metadata:
+          type: object

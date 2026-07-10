@@ -1,0 +1,87 @@
+// Prisma schema for LeadForge AI
+// docs: https://www.prisma.io/docs
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum LeadStatus {
+  NEW
+  OUTREACH_DRAFTED
+  OUTREACH_PENDING_APPROVAL
+  OUTREACH_SENT
+  REPLIED
+  QUALIFIED
+  DISQUALIFIED
+}
+
+enum MessageRole {
+  LEAD
+  AGENT
+  HUMAN_OPERATOR
+}
+
+enum ProjectStatus {
+  GATHERING_REQUIREMENTS
+  READY_TO_BUILD
+  BUILDING
+  BUILD_FAILED
+  DEPLOYED
+}
+
+model Lead {
+  id            String        @id @default(cuid())
+  name          String?
+  email         String        @unique
+  company       String?
+  source        String? // e.g. "apollo", "manual", "website form"
+  status        LeadStatus    @default(NEW)
+  notes         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  conversations Conversation[]
+  projects      Project[]
+}
+
+model Conversation {
+  id         String    @id @default(cuid())
+  leadId     String
+  lead       Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  subject    String?
+  messages   Message[]
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           MessageRole
+  content        String
+  // For outbound agent drafts awaiting human approval before sending
+  approved       Boolean      @default(false)
+  sentAt         DateTime?
+  createdAt      DateTime     @default(now())
+}
+
+model Project {
+  id            String        @id @default(cuid())
+  leadId        String
+  lead          Lead          @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  name          String
+  // Structured requirements produced by the Requirements Analyst Agent
+  requirements  Json?
+  status        ProjectStatus @default(GATHERING_REQUIREMENTS)
+  repoUrl       String?
+  deployUrl     String?
+  buildLog      String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}

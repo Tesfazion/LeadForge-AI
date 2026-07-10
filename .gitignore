@@ -1,0 +1,131 @@
+# Dependencies
+node_modules/
+/.pnp
+.pnp.js
+
+# Testing
+/coverage
+
+# Production builds
+/leadforge-ai/frontend/.next/
+/leadforge-ai/frontend/out/
+/leadforge-ai/backend/dist/
+/leadforge-ai/backend/build/
+
+# Environment variables (IMPORTANT - Never commit these!)
+.env
+.env*.local
+.env.development
+.env.production
+*.env
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.vscode/
+.history/
+
+# Vercel
+.vercel
+
+# Next.js
+.next
+out
+
+# Prisma
+/leadforge-ai/backend/prisma/migrations/*_*
+!/leadforge-ai/backend/prisma/migrations/migration_lock.toml
+
+# Local development
+*.local
+
+# Generated files
+/leadforge-ai/backend/generated/
+/leadforge-ai/frontend/public/uploads/
+
+# Logs
+logs
+*.log
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Build directories
+build/
+dist/
+
+# Package manager locks (optional - some teams commit these)
+# Uncomment if you don't want to commit lock files
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# Sensitive data files (if any)
+*.pem
+*.key
+*.cert
+
+# Database files (if using local SQLite)
+*.db
+*.sqlite
+*.sqlite3
+
+# Backup files
+*.backup
+*.bak
+*.old
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Documentation builds
+docs/_build/
+docs/.doctrees/
+
+# Python (if using any Python tools)
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+venv/
+ENV/
+
+# Ruby (if using any Ruby tools)
+*.gem
+*.rbc
+.bundle
+vendor/
+
+# Misc
+.cache
+.parcel-cache
+.eslintcache
+.stylelintcache
