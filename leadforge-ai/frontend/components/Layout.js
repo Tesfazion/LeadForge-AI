@@ -33,6 +33,7 @@ export default function Layout({ children }) {
     {
       section: "Engagement",
       items: [
+        { name: "Inbox", href: "/inbox", icon: "inbox" },
         { name: "Outreach", href: "/outreach", icon: "mail", badge: "pending" },
         { name: "Conversations", href: "/conversations", icon: "message" },
         { name: "Analytics", href: "/analytics", icon: "trending" },
@@ -68,6 +69,11 @@ export default function Layout({ children }) {
       mail: (
         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className="nav-item-icon">
           <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+        </svg>
+      ),
+      inbox: (
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className="nav-item-icon">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 13.5h3.86a2.25 2.25 0 012.012 1.244l.256.512a2.25 2.25 0 002.013 1.244h3.218a2.25 2.25 0 002.013-1.244l.256-.512a2.25 2.25 0 012.013-1.244h3.859m-19.5 0c.094-1.25.371-2.468.846-3.626.54-1.317 1.461-2.51 2.663-3.437C6.022 4.778 7.929 4.5 10.117 4.5c2.324 0 4.387.358 6.045 1.013A9.375 9.375 0 0121 12.75v.75m-19.5 0a2.25 2.25 0 002.25 2.25h15a2.25 2.25 0 002.25-2.25m0 0V12" />
         </svg>
       ),
       message: (

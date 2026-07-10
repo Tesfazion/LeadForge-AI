@@ -16,6 +16,9 @@ import { leadsRouter } from "./routes/leads.js";
 import { discoveryRouter } from "./routes/discovery.js";
 import { trackingRouter } from "./routes/tracking.js";
 import { activitiesRouter } from "./routes/activities.js";
+import { inboxRouter } from "./routes/inbox.js";
+import { oauthRouter } from "./routes/oauth.js";
+import { desktopRouter } from "./routes/desktop.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -54,6 +57,9 @@ app.get("/api", (req, res) => {
       discovery: "/discovery",
       activities: "/activities",
       tracking: "/track",
+      inbox: "/inbox",
+      oauth: "/oauth",
+      desktop: "/desktop",
     },
   });
 });
@@ -66,6 +72,9 @@ app.use("/build", buildRouter);
 app.use("/discovery", discoveryRouter);
 app.use("/track", trackingRouter);
 app.use("/activities", activitiesRouter);
+app.use("/inbox", inboxRouter);
+app.use("/oauth", oauthRouter);
+app.use("/desktop", desktopRouter);
 
 // Central error handler - every route calls next(err) on failure
 app.use((err, req, res, next) => {

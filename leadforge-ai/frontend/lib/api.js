@@ -21,6 +21,8 @@ export const api = {
   getPendingOutreach: () => request("/outreach/pending"),
   approveOutreach: (messageId) => request(`/outreach/${messageId}/approve`, { method: "POST" }),
   rejectOutreach: (messageId) => request(`/outreach/${messageId}/reject`, { method: "POST" }),
+  editOutreach: (messageId, { content, subject }) => 
+    request(`/outreach/${messageId}/edit`, { method: "PUT", body: JSON.stringify({ content, subject }) }),
 
   getConversation: (id) => request(`/chat/${id}`),
   replyToConversation: (id, content) =>
@@ -38,4 +40,40 @@ export const api = {
   getActivities: (limit) => request(`/activities${limit ? `?limit=${limit}` : ""}`),
   getActivitiesStats: () => request("/activities/stats"),
   getAgentStatus: (agentName) => request(`/activities/agent/${agentName}/status`),
+
+  // OAuth & Platform Connections
+  getOAuthConfig: () => request("/oauth/config"),
+  getConnectionStatus: (userId = "default-user") => request(`/oauth/status?userId=${userId}`),
+  connectPlatform: (platform, userId = "default-user") => {
+    // This opens a new window for OAuth flow
+    window.location.href = `${API_URL}/oauth/connect/${platform}?userId=${userId}`;
+  },
+  disconnectPlatform: (platform, userId = "default-user") => 
+    request(`/oauth/disconnect/${platform}`, { method: "POST", body: JSON.stringify({ userId }) }),
+  getConnectedAccounts: (userId = "default-user") => request(`/oauth/accounts?userId=${userId}`),
+  getPlatformData: (platform, userId = "default-user") => request(`/oauth/data/${platform}?userId=${userId}`),
+  getAllPlatformData: (userId = "default-user") => request(`/oauth/data?userId=${userId}`),
+  getAISummary: (userId = "default-user") => request(`/oauth/ai-summary?userId=${userId}`),
+
+  // Email Inbox
+  getEmails: (status, userId = "default-user") => 
+    request(`/inbox/emails${status ? `?status=${status}` : ""}${userId ? `&userId=${userId}` : ""}`),
+  getEmailTasks: (emailId) => request(`/inbox/emails/${emailId}/tasks`),
+  markEmailAsRead: (emailId) => request(`/inbox/emails/${emailId}/read`, { method: "POST" }),
+  completeTask: (taskId) => request(`/inbox/tasks/${taskId}/complete`, { method: "POST" }),
+  startInboxMonitoring: () => request("/inbox/start", { method: "POST" }),
+  stopInboxMonitoring: () => request("/inbox/stop", { method: "POST" }),
+
+  // Build & Preview
+  buildProject: (projectId) => request(`/build/${projectId}`, { method: "POST" }),
+  deployProject: (projectId) => request(`/build/${projectId}/deploy`, { method: "POST" }),
+  getPreview: (projectId) => request(`/build/${projectId}/preview`),
+
+  // Desktop Integration
+  getInstalledApps: () => request("/desktop/apps"),
+  openInApp: (projectId, appId) => request("/desktop/open", { method: "POST", body: JSON.stringify({ projectId, appId }) }),
+  openInMultipleApps: (projectId, appIds) => request("/desktop/open", { method: "POST", body: JSON.stringify({ projectId, appIds }) }),
+  createWorkspace: (projectId) => request("/desktop/workspace", { method: "POST", body: JSON.stringify({ projectId }) }),
+  openInBrowser: (url) => request("/desktop/open-url", { method: "POST", body: JSON.stringify({ url }) }),
+  openFolder: (projectId) => request("/desktop/open-folder", { method: "POST", body: JSON.stringify({ projectId }) }),
 };

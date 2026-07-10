@@ -126,6 +126,53 @@ outreachRouter.post("/:messageId/approve", async (req, res, next) => {
 });
 
 /**
+ * PUT /outreach/:messageId/edit
+ * Updates the content and/or subject of a drafted email before approval
+ */
+outreachRouter.put("/:messageId/edit", async (req, res, next) => {
+  try {
+    const { content, subject } = req.body;
+    const messageId = req.params.messageId;
+
+    const message = await prisma.message.findUnique({
+      where: { id: messageId },
+      include: { conversation: true },
+    });
+
+    if (!message) return res.status(404).json({ error: "Message not found" });
+    if (message.approved) return res.status(400).json({ error: "Cannot edit approved message" });
+
+    // Update message content
+    const updatedMessage = await prisma.message.update({
+      where: { id: messageId },
+      data: { content },
+      include: { conversation: { include: { lead: true } } },
+    });
+
+    // Update conversation subject if provided
+    if (subject && subject !== message.conversation.subject) {
+      await prisma.conversation.update({
+        where: { id: message.conversationId },
+        data: { subject },
+      });
+    }
+
+    recordActivity({
+      agent: "outreach",
+      action: "edit_draft",
+      leadId: message.conversation.leadId,
+      conversationId: message.conversationId,
+      status: "completed",
+      metadata: { messageId, edited: true },
+    });
+
+    res.json(updatedMessage);
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
  * POST /outreach/:messageId/reject
  * Discards a drafted email without sending it (e.g. human edits and re-drafts).
  */

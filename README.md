@@ -98,6 +98,9 @@ Deployed to Vercel → Live URL in 30 Seconds! 🎉
 
 ### 🔌 Integrations
 - **Database**: Supabase (PostgreSQL)
+- **OAuth Platforms**: Gmail, LinkedIn, Instagram, GitHub
+- **Email**: Gmail OAuth2, SMTP, IMAP monitoring
+- **Real-time**: Server-Sent Events (SSE) streaming
 - **AI**: OpenAI GPT-4
 - **Lead Sources**: Apollo.io, Hunter.io, Clearbit
 - **Email**: Gmail (OAuth2)

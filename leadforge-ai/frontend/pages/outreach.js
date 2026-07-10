@@ -10,14 +10,16 @@ export default function OutreachQueuePage() {
   );
   const [approving, setApproving] = useState({});
   const [rejecting, setRejecting] = useState({});
+  const [editing, setEditing] = useState({});
+  const [editingMessage, setEditingMessage] = useState(null);
 
   async function handleApprove(messageId) {
-    if (!confirm("Send this email?")) return;
+    if (!confirm("Send this email to the lead?")) return;
     setApproving((prev) => ({ ...prev, [messageId]: true }));
     try {
       await api.approveOutreach(messageId);
       mutate();
-      showToast("Email sent successfully!", "success");
+      showToast("Email sent successfully! 📧", "success");
     } catch (err) {
       showToast(`Failed to send: ${err.message}`, "error");
     } finally {
@@ -26,7 +28,7 @@ export default function OutreachQueuePage() {
   }
 
   async function handleReject(messageId) {
-    if (!confirm("Discard this draft?")) return;
+    if (!confirm("Discard this draft? You can create a new one anytime.")) return;
     setRejecting((prev) => ({ ...prev, [messageId]: true }));
     try {
       await api.rejectOutreach(messageId);
@@ -39,6 +41,38 @@ export default function OutreachQueuePage() {
     }
   }
 
+  function openEditModal(msg) {
+    setEditingMessage({
+      id: msg.id,
+      subject: msg.conversation.subject,
+      content: msg.content,
+      lead: msg.conversation.lead,
+    });
+  }
+
+  function closeEditModal() {
+    setEditingMessage(null);
+  }
+
+  async function handleSaveEdit() {
+    if (!editingMessage) return;
+    
+    setEditing((prev) => ({ ...prev, [editingMessage.id]: true }));
+    try {
+      await api.editOutreach(editingMessage.id, {
+        subject: editingMessage.subject,
+        content: editingMessage.content,
+      });
+      mutate();
+      closeEditModal();
+      showToast("Draft updated successfully! ✏️", "success");
+    } catch (err) {
+      showToast(`Failed to update: ${err.message}`, "error");
+    } finally {
+      setEditing((prev) => ({ ...prev, [editingMessage.id]: false }));
+    }
+  }
+
   return (
     <>
       <div className="page-header">
@@ -46,7 +80,7 @@ export default function OutreachQueuePage() {
           <div>
             <h1 className="page-title">Outreach Approval Queue</h1>
             <p className="page-description">
-              Review and approve AI-drafted emails before they're sent
+              Review, edit, and approve AI-drafted emails before they're sent
             </p>
           </div>
           {pending && pending.length > 0 && (
@@ -205,6 +239,22 @@ export default function OutreachQueuePage() {
           {/* Actions */}
           <div style={{ display: "flex", gap: "12px" }}>
             <button
+              className="btn-secondary"
+              onClick={() => openEditModal(msg)}
+              disabled={approving[msg.id] || rejecting[msg.id]}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "8px",
+              }}
+            >
+              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+              </svg>
+              Edit Draft
+            </button>
+            <button
               className="btn-primary"
               onClick={() => handleApprove(msg.id)}
               disabled={approving[msg.id] || rejecting[msg.id]}
@@ -231,7 +281,7 @@ export default function OutreachQueuePage() {
               )}
             </button>
             <button
-              className="btn-secondary"
+              className="btn-ghost"
               onClick={() => handleReject(msg.id)}
               disabled={approving[msg.id] || rejecting[msg.id]}
               style={{
@@ -240,7 +290,6 @@ export default function OutreachQueuePage() {
                 justifyContent: "center",
                 gap: "8px",
                 color: "var(--error)",
-                borderColor: "var(--error-200)",
               }}
             >
               {rejecting[msg.id] ? (
@@ -253,13 +302,158 @@ export default function OutreachQueuePage() {
                   <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
                   </svg>
-                  Reject Draft
+                  Discard
                 </>
               )}
             </button>
           </div>
         </div>
       ))}
+
+      {/* Edit Modal */}
+      {editingMessage && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "rgba(0, 0, 0, 0.5)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "20px",
+          zIndex: 1000,
+        }} onClick={closeEditModal}>
+          <div style={{
+            background: "var(--bg-primary)",
+            borderRadius: "var(--radius-lg)",
+            maxWidth: "700px",
+            width: "100%",
+            maxHeight: "90vh",
+            overflow: "auto",
+            boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+          }} onClick={(e) => e.stopPropagation()}>
+            {/* Modal Header */}
+            <div style={{
+              padding: "24px",
+              borderBottom: "1px solid var(--border)",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}>
+              <div>
+                <h2 style={{ fontSize: "20px", fontWeight: 600, marginBottom: "4px" }}>
+                  Edit Draft Email
+                </h2>
+                <p style={{ fontSize: "14px", color: "var(--text-secondary)", margin: 0 }}>
+                  To: {editingMessage.lead.name} ({editingMessage.lead.email})
+                </p>
+              </div>
+              <button className="btn-icon" onClick={closeEditModal}>
+                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: "24px" }}>
+              <div style={{ marginBottom: "20px" }}>
+                <label style={{ 
+                  display: "block", 
+                  fontSize: "14px", 
+                  fontWeight: 600, 
+                  marginBottom: "8px",
+                  color: "var(--text-primary)",
+                }}>
+                  Subject Line
+                </label>
+                <input
+                  type="text"
+                  value={editingMessage.subject}
+                  onChange={(e) => setEditingMessage({ ...editingMessage, subject: e.target.value })}
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    border: "1px solid var(--border)",
+                    borderRadius: "var(--radius)",
+                    fontSize: "14px",
+                    background: "var(--bg-primary)",
+                    color: "var(--text-primary)",
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ 
+                  display: "block", 
+                  fontSize: "14px", 
+                  fontWeight: 600, 
+                  marginBottom: "8px",
+                  color: "var(--text-primary)",
+                }}>
+                  Email Body
+                </label>
+                <textarea
+                  value={editingMessage.content}
+                  onChange={(e) => setEditingMessage({ ...editingMessage, content: e.target.value })}
+                  rows={15}
+                  style={{
+                    width: "100%",
+                    padding: "12px",
+                    border: "1px solid var(--border)",
+                    borderRadius: "var(--radius)",
+                    fontSize: "14px",
+                    lineHeight: "1.6",
+                    background: "var(--bg-primary)",
+                    color: "var(--text-primary)",
+                    fontFamily: "inherit",
+                    resize: "vertical",
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{
+              padding: "20px 24px",
+              borderTop: "1px solid var(--border)",
+              display: "flex",
+              justifyContent: "flex-end",
+              gap: "12px",
+            }}>
+              <button className="btn-secondary" onClick={closeEditModal}>
+                Cancel
+              </button>
+              <button 
+                className="btn-primary" 
+                onClick={handleSaveEdit}
+                disabled={editing[editingMessage.id]}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                }}
+              >
+                {editing[editingMessage.id] ? (
+                  <>
+                    <div className="spinner" style={{ width: "16px", height: "16px" }} />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
+                    Save Changes
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
