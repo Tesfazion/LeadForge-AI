@@ -17,9 +17,12 @@ export default function LiveBuildPage() {
   useEffect(() => {
     if (!projectId) return;
 
-    // Connect to SSE stream for real-time updates
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:1100";
-    const eventSource = new EventSource(`${apiUrl}/build/${projectId}/stream`);
+    // Connect to the SSE build progress stream.
+    // In production on Vercel, NEXT_PUBLIC_API_URL is unset so we use a
+    // relative path — but EventSource requires an absolute URL, so we
+    // fall back to window.location.origin when no base is configured.
+    const apiBase = process.env.NEXT_PUBLIC_API_URL || window.location.origin;
+    const eventSource = new EventSource(`${apiBase}/api/build/${projectId}/stream`);
     eventSourceRef.current = eventSource;
 
     eventSource.onmessage = (event) => {
@@ -91,7 +94,7 @@ body {
             </p>
           </div>
           <button
-            className="btn-secondary"
+            className="btn btn-secondary"
             onClick={() => router.push(`/projects`)}
           >
             ← Back to Projects

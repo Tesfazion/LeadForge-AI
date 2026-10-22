@@ -1,3 +1,16 @@
+/**
+ * Discovery route
+ *
+ * Runs the Lead Discovery Agent against real APIs (Apollo, Clearbit) or an
+ * AI fallback to generate potential leads matching the given criteria.
+ * Optionally auto-inserts discovered leads into the database (skipping
+ * duplicates by email).
+ *
+ * Endpoints:
+ *   POST /discovery/search  — discover leads by criteria
+ *   GET  /discovery/stats   — count leads by source for analytics
+ */
+
 import { Router } from "express";
 import { prisma } from "../lib/prisma.js";
 import { discoverLeads } from "../agents/leadDiscoveryAgent.js";

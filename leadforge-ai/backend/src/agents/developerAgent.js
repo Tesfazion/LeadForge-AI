@@ -283,15 +283,30 @@ next-env.d.ts
   return files;
 }
 
-/** Writes generated files to disk under a project-specific directory. */
+/**
+ * Writes generated files to a project-specific directory.
+ *
+ * Root path resolution:
+ *   • Vercel / any read-only serverless environment → /tmp/generated-sites/
+ *   • Local dev (GENERATED_SITES_DIR env override)  → that path
+ *
+ * /tmp is the only writable directory available in Vercel's Node.js runtime.
+ * Note: /tmp is ephemeral and wiped between deployments. For persistence,
+ * store file contents in the database (e.g. Project.requirements Json field).
+ */
 export async function writeProjectToDisk(projectId, files) {
-  const root = path.join(process.cwd(), "generated-sites", projectId);
+  const baseDir = process.env.GENERATED_SITES_DIR
+    ?? (process.env.VERCEL ? "/tmp/generated-sites" : path.join(process.cwd(), "generated-sites"));
+
+  const root = path.join(baseDir, projectId);
   await fs.mkdir(root, { recursive: true });
+
   for (const [relPath, content] of Object.entries(files)) {
     const fullPath = path.join(root, relPath);
     await fs.mkdir(path.dirname(fullPath), { recursive: true });
     await fs.writeFile(fullPath, content, "utf-8");
   }
+
   return root;
 }
 

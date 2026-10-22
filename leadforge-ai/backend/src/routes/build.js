@@ -1,12 +1,48 @@
-import fs from "node:fs/promises";
+/**
+ * Build route
+ *
+ * Controls the two-phase site generation pipeline:
+ *   Phase 1  POST /:projectId          → generate code, write to disk, status: PREVIEW_READY
+ *   Phase 2  POST /:projectId/deploy   → read files, push to Vercel, status: DEPLOYED
+ *
+ * Additional endpoints:
+ *   GET  /:projectId/preview          → return generated file map
+ *   GET  /:projectId/status           → poll current ProjectStatus
+ *   GET  /:projectId/stream           → SSE stream for real-time progress events
+ *   POST /:projectId/open-in-vscode   → open project folder in VS Code (local only)
+ *
+ * Filesystem note:
+ *   On Vercel the bundle root is read-only. All disk writes go to /tmp via
+ *   writeProjectToDisk (which auto-selects /tmp when process.env.VERCEL is set).
+ *   Use projectDiskPath() below to resolve the same base directory consistently.
+ */
+
+import fs   from "node:fs/promises";
 import path from "node:path";
-import { Router } from "express";
-import { prisma } from "../lib/prisma.js";
-import { generateSite, writeProjectToDisk, deployToVercel } from "../agents/developerAgent.js";
+import { Router }          from "express";
+import { prisma }          from "../lib/prisma.js";
+import {
+  generateSite,
+  writeProjectToDisk,
+  deployToVercel,
+}                          from "../agents/developerAgent.js";
 import { getRealtimeBuilder } from "../lib/realtimeBuilder.js";
-import { recordActivity } from "./activities.js";
+import { makeActivityRecorder } from "./activities.js";
 
 export const buildRouter = Router();
+
+// Pre-bound activity recorder — no need to repeat agent: "developer" everywhere
+const activity = makeActivityRecorder("developer");
+
+// ---------------------------------------------------------------------------
+// Path helper — mirrors the logic in writeProjectToDisk so every handler
+// resolves the same base directory without duplicating the /tmp check.
+// ---------------------------------------------------------------------------
+function projectDiskPath(projectId) {
+  const baseDir = process.env.GENERATED_SITES_DIR
+    ?? (process.env.VERCEL ? "/tmp/generated-sites" : path.join(process.cwd(), "generated-sites"));
+  return path.join(baseDir, projectId);
+}
 
 /**
  * Helper: Read all files from a project directory
@@ -47,8 +83,7 @@ buildRouter.post("/:projectId", async (req, res, next) => {
       return res.status(400).json({ error: "Project has no requirements yet - run /requirements/:conversationId/extract first" });
     }
 
-    recordActivity({
-      agent: "developer",
+    activity({
       action: "building_site",
       leadId: project.leadId,
       projectId: project.id,
@@ -73,8 +108,7 @@ buildRouter.post("/:projectId", async (req, res, next) => {
       },
     });
 
-    recordActivity({
-      agent: "developer",
+    activity({
       action: "building_site",
       leadId: project.leadId,
       projectId: project.id,
@@ -90,8 +124,7 @@ buildRouter.post("/:projectId", async (req, res, next) => {
       message: "Website generated successfully. Review the preview before deploying."
     });
   } catch (err) {
-    recordActivity({
-      agent: "developer",
+    activity({
       action: "building_site",
       projectId: req.params.projectId,
       status: "error",
@@ -113,8 +146,7 @@ buildRouter.post("/:projectId/deploy", async (req, res, next) => {
       return res.status(400).json({ error: "Project must be in PREVIEW_READY status. Build the site first." });
     }
 
-    recordActivity({
-      agent: "developer",
+    activity({
       action: "deploying_site",
       leadId: project.leadId,
       projectId: project.id,
@@ -124,8 +156,8 @@ buildRouter.post("/:projectId/deploy", async (req, res, next) => {
 
     await prisma.project.update({ where: { id: project.id }, data: { status: "DEPLOYING" } });
 
-    // Read files from disk
-    const localPath = path.join(process.cwd(), "generated-sites", project.id);
+    // Read files from disk (from the path written during the build phase)
+    const localPath = projectDiskPath(project.id);
     const files = await readProjectFromDisk(localPath);
 
     // Deploy to Vercel
@@ -138,8 +170,7 @@ buildRouter.post("/:projectId/deploy", async (req, res, next) => {
         data: { status: "DEPLOY_FAILED", buildLog: String(deployErr.message || deployErr) },
       });
       
-      recordActivity({
-        agent: "developer",
+      activity({
         action: "deploying_site",
         leadId: project.leadId,
         projectId: project.id,
@@ -159,8 +190,7 @@ buildRouter.post("/:projectId/deploy", async (req, res, next) => {
       },
     });
 
-    recordActivity({
-      agent: "developer",
+    activity({
       action: "deploying_site",
       leadId: project.leadId,
       projectId: project.id,
@@ -170,8 +200,7 @@ buildRouter.post("/:projectId/deploy", async (req, res, next) => {
 
     res.json({ project: updated, deployUrl: deployResult.url });
   } catch (err) {
-    recordActivity({
-      agent: "developer",
+    activity({
       action: "deploying_site",
       projectId: req.params.projectId,
       status: "error",
@@ -190,8 +219,8 @@ buildRouter.get("/:projectId/preview", async (req, res, next) => {
     const project = await prisma.project.findUnique({ where: { id: req.params.projectId } });
     if (!project) return res.status(404).json({ error: "Project not found" });
 
-    const localPath = path.join(process.cwd(), "generated-sites", project.id);
-    
+    const localPath = projectDiskPath(project.id);
+
     try {
       const files = await readProjectFromDisk(localPath);
       res.json({ 
@@ -217,9 +246,7 @@ buildRouter.post("/:projectId/open-in-vscode", async (req, res, next) => {
     const project = await prisma.project.findUnique({ where: { id: req.params.projectId } });
     if (!project) return res.status(404).json({ error: "Project not found" });
 
-    const localPath = path.join(process.cwd(), "generated-sites", project.id);
-    
-    // Open in VS Code using 'code' command
+    const localPath = projectDiskPath(project.id);
     const { exec } = await import("child_process");
     const { promisify } = await import("util");
     const execAsync = promisify(exec);
@@ -227,8 +254,7 @@ buildRouter.post("/:projectId/open-in-vscode", async (req, res, next) => {
     try {
       await execAsync(`code "${localPath}"`);
       
-      recordActivity({
-        agent: "developer",
+      activity({
         action: "open_in_vscode",
         projectId: project.id,
         status: "completed",

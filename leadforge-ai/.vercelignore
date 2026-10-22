@@ -1,0 +1,23 @@
+# Vercel ignore file — these paths are excluded from the deployment bundle.
+
+# Generated site output (written at runtime by the Developer Agent — too large
+# for a deployment bundle and meaningless in a serverless context)
+backend/generated-sites/
+
+# Local environment files — secrets must be set via Vercel dashboard instead
+backend/.env
+frontend/.env.local
+
+# Development artefacts
+node_modules/
+backend/node_modules/
+frontend/node_modules/
+frontend/.next/
+**/.DS_Store
+
+# Prisma migration history (schema.prisma is still included via vercel.json
+# includeFiles; only the migrations folder is excluded here)
+backend/prisma/migrations/
+
+# Markdown docs — not needed at runtime
+*.md

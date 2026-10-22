@@ -2,6 +2,8 @@ import useSWR from "swr";
 import { useState } from "react";
 import Link from "next/link";
 import { api } from "../lib/api";
+import { showToast } from "../components/Toast";
+import { getStatusBadgeClass, formatStatus } from "../lib/utils";
 
 export default function LeadsPage() {
   const { data: leads, error, isLoading, mutate } = useSWR("leads", api.getLeads);
@@ -20,7 +22,7 @@ export default function LeadsPage() {
       setShowForm(false);
       mutate();
     } catch (err) {
-      alert(err.message);
+      showToast(err.message, "error");
     } finally {
       setSubmitting(false);
     }
@@ -37,18 +39,7 @@ export default function LeadsPage() {
     return matchesSearch && matchesStatus;
   });
 
-  const getStatusBadgeClass = (status) => {
-    const map = {
-      NEW: "badge-gray",
-      OUTREACH_DRAFTED: "badge-warning",
-      OUTREACH_PENDING_APPROVAL: "badge-warning",
-      OUTREACH_SENT: "badge-primary",
-      REPLIED: "badge-success",
-      QUALIFIED: "badge-success",
-      DISQUALIFIED: "badge-error",
-    };
-    return map[status] || "badge-gray";
-  };
+  // getStatusBadgeClass and formatStatus are imported from lib/utils
 
   return (
     <>
@@ -248,7 +239,7 @@ export default function LeadsPage() {
                   </td>
                   <td>
                     <span className={`badge ${getStatusBadgeClass(lead.status)}`}>
-                      {lead.status.replace(/_/g, " ")}
+                      {formatStatus(lead.status)}
                     </span>
                   </td>
                   <td style={{ fontSize: "13px", color: "var(--text-secondary)" }}>

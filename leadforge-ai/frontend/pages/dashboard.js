@@ -2,6 +2,7 @@ import useSWR from "swr";
 import Link from "next/link";
 import { api } from "../lib/api";
 import { useMemo } from "react";
+import { getStatusBadgeClass, formatStatus } from "../lib/utils";
 
 export default function DashboardPage() {
   const { data: leads } = useSWR("leads", api.getLeads);
@@ -35,8 +36,7 @@ export default function DashboardPage() {
     };
   }, [leads]);
 
-  const recentLeads = useMemo(() => {
-    if (!leads) return [];
+  const recentLeads = useMemo(() => {    if (!leads) return [];
     return [...leads]
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
       .slice(0, 5);
@@ -55,18 +55,7 @@ export default function DashboardPage() {
     }));
   }, [leads]);
 
-  const getStatusBadgeClass = (status) => {
-    const map = {
-      NEW: "badge-gray",
-      OUTREACH_DRAFTED: "badge-warning",
-      OUTREACH_PENDING_APPROVAL: "badge-warning",
-      OUTREACH_SENT: "badge-primary",
-      REPLIED: "badge-success",
-      QUALIFIED: "badge-success",
-      DISQUALIFIED: "badge-error",
-    };
-    return map[status] || "badge-gray";
-  };
+  // getStatusBadgeClass is imported from lib/utils — no local copy needed
 
   if (!stats) {
     return (
@@ -194,7 +183,7 @@ export default function DashboardPage() {
                     <td>{lead.company || "—"}</td>
                     <td>
                       <span className={`badge ${getStatusBadgeClass(lead.status)}`}>
-                        {lead.status.replace(/_/g, " ")}
+                        {formatStatus(lead.status)}
                       </span>
                     </td>
                     <td style={{ color: "var(--text-secondary)", fontSize: "13px" }}>
@@ -227,7 +216,7 @@ export default function DashboardPage() {
             {statusDistribution.map(({ status, count, percentage }) => (
               <div key={status}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                  <span style={{ fontSize: "13px", fontWeight: 500 }}>{status.replace(/_/g, " ")}</span>
+                  <span style={{ fontSize: "13px", fontWeight: 500 }}>{formatStatus(status)}</span>
                   <span style={{ fontSize: "13px", color: "var(--text-secondary)" }}>{count}</span>
                 </div>
                 <div style={{ height: "6px", background: "var(--gray-200)", borderRadius: "3px", overflow: "hidden" }}>

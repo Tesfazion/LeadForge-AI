@@ -1,3 +1,16 @@
+/**
+ * Email tracking route
+ *
+ * Handles pixel and redirect tokens injected into outbound emails by
+ * emailTracking.js.  Tokens are single-use-safe (events accumulate) and are
+ * looked up from the in-memory trackingData map.
+ *
+ * Endpoints:
+ *   GET /track/open/:token   — record an email open, return a 1×1 transparent GIF
+ *   GET /track/click/:token  — record a link click, redirect to the original URL
+ *   GET /track/stats/:messageId — aggregate open/click stats for a message
+ */
+
 import { Router } from "express";
 import { recordOpen, recordClick } from "../lib/emailTracking.js";
 import { prisma } from "../lib/prisma.js";

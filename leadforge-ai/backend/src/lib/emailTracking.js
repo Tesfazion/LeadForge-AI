@@ -1,11 +1,31 @@
-import crypto from "crypto";
-
 /**
- * Email Tracking System
- * Tracks email opens and link clicks
+ * Email Tracking
+ *
+ * Generates 1×1 pixel tracking URLs (open events) and redirect URLs
+ * (click events) that are injected into outbound emails.
+ * The /track/* routes record hits against the tokens stored here.
+ *
+ * ⚠️  PERSISTENCE WARNING
+ * `trackingData` is an in-memory Map.  All open/click events are lost when
+ * the server restarts, and tracking URLs generated before a restart will
+ * silently drop their events (the /track route will find no matching token).
+ *
+ * Migration path for production:
+ *   1. Add a `TrackingToken` model to prisma/schema.prisma:
+ *        token (String @id), messageId, type, linkId?, originalUrl?, events (Json[]), createdAt.
+ *   2. Replace Map operations below with Prisma queries.
+ *   3. Consider a Redis hash for high-volume deployments — tracking pixels
+ *      can fire hundreds of times per email (image pre-fetchers, etc.).
  */
 
-const trackingData = new Map(); // In production, use Redis or database
+import crypto from "crypto";
+
+// ---------------------------------------------------------------------------
+// In-memory store — see persistence warning in the module header above
+// ---------------------------------------------------------------------------
+
+/** key: hex token string → value: tracking metadata + events array */
+const trackingData = new Map();
 
 /**
  * Generate tracking pixel for email opens

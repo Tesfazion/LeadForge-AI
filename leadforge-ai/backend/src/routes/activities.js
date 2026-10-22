@@ -1,32 +1,63 @@
+/**
+ * Activities route + recordActivity helper
+ *
+ * Provides a real-time event feed for the Agents dashboard page.
+ *
+ * ⚠️  PERSISTENCE WARNING
+ * `recentActivities` is an in-memory circular buffer.  All events are lost
+ * when the server restarts.  This is intentional for the current demo — it
+ * avoids a DB schema change just for ephemeral UI updates.
+ * For production, replace with a Redis list or a dedicated `Activity` Prisma
+ * model and call `recordActivity` asynchronously (fire-and-forget).
+ */
+
 import { Router } from "express";
 import { prisma } from "../lib/prisma.js";
 
 export const activitiesRouter = Router();
 
-// In-memory activity store for real-time updates (could be Redis in production)
+// ---------------------------------------------------------------------------
+// In-memory store — see persistence warning in the module header above
+// ---------------------------------------------------------------------------
+
+/** Circular buffer: newest events at index 0, oldest at the tail. */
 const recentActivities = [];
+
+/** Maximum number of events kept in memory at any time. */
 const MAX_ACTIVITIES = 100;
 
 /**
- * Record an agent activity
- * Called internally by agents when they perform actions
+ * Record an agent activity event.
+ *
+ * Called internally by route handlers when an agent starts, completes, or
+ * fails an action.  Fire-and-forget — no need to await the return value.
+ *
+ * @param {object} params
+ * @param {string} params.agent          - Agent name: "outreach"|"chat"|"requirements"|"developer"|"oauth"
+ * @param {string} params.action         - Human-readable action label (e.g. "drafting_email")
+ * @param {string} params.status         - "started"|"completed"|"error"
+ * @param {string} [params.leadId]
+ * @param {string} [params.conversationId]
+ * @param {string} [params.projectId]
+ * @param {object} [params.metadata={}]  - Any extra key/value pairs useful for debugging
+ * @returns {object} The activity object that was stored
  */
 export function recordActivity({ agent, action, leadId, conversationId, projectId, status, metadata = {} }) {
   const activity = {
-    id: `activity-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    agent, // "outreach" | "chat" | "requirements" | "developer"
-    action, // e.g. "drafting_email", "extracting_requirements", "building_site"
+    id:             `activity-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    agent,
+    action,
     leadId,
     conversationId,
     projectId,
-    status, // "started" | "completed" | "error"
+    status,
     metadata,
-    timestamp: new Date().toISOString(),
+    timestamp:      new Date().toISOString(),
   };
 
   recentActivities.unshift(activity);
-  
-  // Keep only recent activities
+
+  // Drop oldest event once the buffer is full
   if (recentActivities.length > MAX_ACTIVITIES) {
     recentActivities.pop();
   }
@@ -35,7 +66,25 @@ export function recordActivity({ agent, action, leadId, conversationId, projectI
 }
 
 /**
- * GET /activities - Get recent agent activities
+ * Factory that returns a pre-bound `recordActivity` for a specific agent name.
+ * Use this inside a route module to avoid repeating `agent: "developer"` on
+ * every call.
+ *
+ * Example:
+ *   const activity = makeActivityRecorder("developer");
+ *   activity({ action: "building_site", status: "started", projectId });
+ *
+ * @param {string} agent - Agent name to bind
+ * @returns {function} Bound recordActivity with `agent` pre-filled
+ */
+export function makeActivityRecorder(agent) {
+  return (params) => recordActivity({ agent, ...params });
+}
+
+/**
+ * GET /activities
+ * Returns recent agent activity events, newest first.
+ * Query param: `limit` (default 50, max MAX_ACTIVITIES)
  */
 activitiesRouter.get("/", async (req, res, next) => {
   try {
@@ -47,7 +96,9 @@ activitiesRouter.get("/", async (req, res, next) => {
 });
 
 /**
- * GET /activities/stats - Get agent statistics
+ * GET /activities/stats
+ * Returns aggregate counts for each agent, sourced from the database so the
+ * numbers survive server restarts (unlike recentActivities above).
  */
 activitiesRouter.get("/stats", async (req, res, next) => {
   try {
@@ -92,7 +143,10 @@ activitiesRouter.get("/stats", async (req, res, next) => {
 });
 
 /**
- * GET /activities/agent/:agentName/status - Get current status of an agent
+ * GET /activities/agent/:agentName/status
+ * Returns "working" | "error" | "idle" for the named agent, based on its
+ * most recent activity event.  An event is considered "working" if its
+ * status is "started" and it was recorded less than 60 s ago.
  */
 activitiesRouter.get("/agent/:agentName/status", async (req, res, next) => {
   try {

@@ -1,3 +1,26 @@
+/**
+ * Inbox route
+ *
+ * Manages IMAP email monitoring and AI-powered email analysis.
+ * When a new email arrives the AI classifies its intent, auto-creates
+ * lead records for unknown senders, and generates actionable tasks.
+ *
+ * ⚠️  PERSISTENCE WARNING
+ * `inboxEmails` and `inboxTasks` are in-memory arrays reset on every
+ * server restart.  For production, store these in the database.
+ *
+ * Monitoring auto-starts 2 s after the server boots (see bottom of file).
+ *
+ * Endpoints:
+ *   GET  /inbox/emails                      — list monitored emails
+ *   GET  /inbox/emails/:emailId/tasks       — tasks for a specific email
+ *   POST /inbox/emails/:emailId/read        — mark email as read
+ *   GET  /inbox/tasks                       — all AI-generated tasks
+ *   POST /inbox/tasks/:taskId/complete      — mark task complete
+ *   GET  /inbox/status                      — monitoring status + counts
+ *   POST /inbox/start                       — start IMAP monitoring
+ */
+
 import { Router } from "express";
 import { prisma } from "../lib/prisma.js";
 import { getEmailMonitor, initializeEmailMonitoring } from "../lib/emailInbox.js";
@@ -6,9 +29,9 @@ import { recordActivity } from "./activities.js";
 
 export const inboxRouter = Router();
 
-// Store for inbox data
+// In-memory stores — see persistence warning in the module header above
 let inboxEmails = [];
-let inboxTasks = [];
+let inboxTasks  = [];
 
 /**
  * Initialize email monitoring
@@ -224,9 +247,22 @@ inboxRouter.get("/status", (req, res) => {
   });
 });
 
-// Auto-start monitoring on server start (if configured)
-setTimeout(() => {
-  setupEmailMonitoring().catch(err => {
-    console.log("[Inbox] Email monitoring not configured:", err.message);
-  });
-}, 2000);
+// ---------------------------------------------------------------------------
+// Conditional auto-start
+// ---------------------------------------------------------------------------
+// Only attempt IMAP monitoring when explicitly enabled via env variable.
+// This guards against spurious TCP connection attempts on every serverless
+// cold start — IMAP is a persistent connection and not compatible with
+// ephemeral serverless functions.
+//
+// To enable:  set ENABLE_EMAIL_MONITORING=true in your environment.
+// Local dev:  add it to backend/.env
+// Production: add it in your Vercel / Railway environment variables ONLY
+//             if running a dedicated long-lived worker process.
+if (process.env.ENABLE_EMAIL_MONITORING === "true") {
+  setTimeout(() => {
+    setupEmailMonitoring().catch((err) => {
+      console.log("[Inbox] Email monitoring failed to start:", err.message);
+    });
+  }, 2000);
+}

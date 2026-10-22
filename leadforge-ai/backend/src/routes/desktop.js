@@ -1,3 +1,19 @@
+/**
+ * Desktop integration route
+ *
+ * Allows the dashboard to open a generated project in the developer's local
+ * IDE or browser without leaving the UI.  Uses child_process under the hood,
+ * so this only makes sense when the backend runs on the developer's own
+ * machine (not in a cloud container).
+ *
+ * Endpoints:
+ *   GET  /desktop/apps           — list detected IDEs / browsers
+ *   POST /desktop/open           — open project in one or more apps
+ *   POST /desktop/workspace      — create a VS Code .code-workspace file
+ *   POST /desktop/open-url       — open a URL in the default browser
+ *   POST /desktop/open-folder    — open project folder in Explorer / Finder
+ */
+
 import { Router } from "express";
 import path from "path";
 import { prisma } from "../lib/prisma.js";
@@ -43,7 +59,10 @@ desktopRouter.post("/open", async (req, res, next) => {
       return res.status(404).json({ error: "Project not found" });
     }
 
-    const projectPath = path.join(process.cwd(), "generated-sites", project.id);
+    const projectPath = path.join(
+      process.env.GENERATED_SITES_DIR ?? path.join(process.cwd(), "generated-sites"),
+      project.id
+    );
 
     // Open in multiple apps
     if (appIds && Array.isArray(appIds)) {
@@ -101,7 +120,10 @@ desktopRouter.post("/workspace", async (req, res, next) => {
       return res.status(404).json({ error: "Project not found" });
     }
 
-    const projectPath = path.join(process.cwd(), "generated-sites", project.id);
+    const projectPath = path.join(
+      process.env.GENERATED_SITES_DIR ?? path.join(process.cwd(), "generated-sites"),
+      project.id
+    );
     const workspacePath = await createVSCodeWorkspace(projectPath, project.name);
 
     recordActivity({
@@ -155,7 +177,10 @@ desktopRouter.post("/open-folder", async (req, res, next) => {
       return res.status(404).json({ error: "Project not found" });
     }
 
-    const projectPath = path.join(process.cwd(), "generated-sites", project.id);
+    const projectPath = path.join(
+      process.env.GENERATED_SITES_DIR ?? path.join(process.cwd(), "generated-sites"),
+      project.id
+    );
     const result = await openInApp("explorer", projectPath);
 
     recordActivity({

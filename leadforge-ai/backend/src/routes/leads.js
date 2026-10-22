@@ -1,3 +1,16 @@
+/**
+ * Leads route
+ *
+ * Core CRUD for Lead records.  Every other pipeline feature (outreach, chat,
+ * requirements, build) references leads by ID, so this is the foundational
+ * resource in the whole system.
+ *
+ * Endpoints:
+ *   GET  /leads        — list all leads (with conversation/project counts)
+ *   POST /leads        — manually create a lead
+ *   GET  /leads/:id    — single lead with full conversation + project history
+ */
+
 import { Router } from "express";
 import { prisma } from "../lib/prisma.js";
 

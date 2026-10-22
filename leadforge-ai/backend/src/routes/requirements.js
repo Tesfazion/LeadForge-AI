@@ -1,3 +1,15 @@
+/**
+ * Requirements route
+ *
+ * Extracts structured website requirements from a conversation transcript
+ * using the Requirements Analyst Agent (GPT-4o-mini + Zod schema).
+ * Creates a Project record that the Developer Agent can act on next.
+ *
+ * Endpoints:
+ *   POST /requirements/:conversationId/extract  — run extraction, create Project
+ *   GET  /requirements/project/:projectId       — view stored requirements
+ */
+
 import { Router } from "express";
 import { prisma } from "../lib/prisma.js";
 import { extractRequirements } from "../agents/requirementsAgent.js";

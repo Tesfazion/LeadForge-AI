@@ -1,3 +1,17 @@
+/**
+ * Outreach route
+ *
+ * Manages the human-in-the-loop email outreach workflow:
+ *   1. Agent drafts an email  (POST /outreach/draft)
+ *   2. Human reviews it       (GET  /outreach/pending)
+ *   3. Human edits if needed  (PUT  /outreach/:id/edit)
+ *   4. Human approves → sent  (POST /outreach/:id/approve)
+ *      or rejects → deleted   (POST /outreach/:id/reject)
+ *
+ * Approved messages are sent via the configured mailer and have open/click
+ * tracking injected before sending.
+ */
+
 import { Router } from "express";
 import { prisma } from "../lib/prisma.js";
 import { draftOutreachEmail } from "../agents/outreachAgent.js";

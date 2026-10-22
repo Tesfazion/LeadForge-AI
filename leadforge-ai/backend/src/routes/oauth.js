@@ -16,7 +16,8 @@ import {
   hasSharedApp,
   getSetupInstructions,
 } from "../lib/autoOAuthSetup.js";
-import { fetchAllPlatformData, getAISummary } from "../lib/platformData.js";
+import * as platformDataModule from "../lib/platformData.js";
+const { fetchAllPlatformData, getAISummary } = platformDataModule;
 import { recordActivity } from "./activities.js";
 
 export const oauthRouter = Router();
@@ -213,18 +214,21 @@ oauthRouter.get("/accounts", (req, res) => {
 
 /**
  * GET /oauth/data/:platform
- * Fetch data from a specific platform
+ * Fetch data from a specific connected platform
  */
 oauthRouter.get("/data/:platform", async (req, res, next) => {
   const { platform } = req.params;
   const userId = req.query.userId || DEFAULT_USER_ID;
 
-  try {
-    const fetchData = require("../lib/platformData.js")[`fetch${capitalize(platform)}Data`];
-    if (!fetchData) {
-      return res.status(400).json({ error: "Invalid platform" });
-    }
+  // Dynamically select the per-platform fetcher from the already-imported module
+  const fetcherName = `fetch${capitalize(platform)}Data`;
+  const fetchData = platformDataModule[fetcherName];
 
+  if (typeof fetchData !== "function") {
+    return res.status(400).json({ error: `Unsupported platform: ${platform}` });
+  }
+
+  try {
     const data = await fetchData(userId);
     res.json(data);
   } catch (error) {

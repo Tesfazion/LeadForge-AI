@@ -1,18 +1,43 @@
+/**
+ * Lead Discovery page
+ *
+ * Lets the user configure search criteria and asks the AI agent (with
+ * optional Apollo / Clearbit fallback) to generate a list of potential leads.
+ * Results can be automatically saved to the database.
+ */
+
 import { useState } from "react";
-import { api } from "../lib/api";
 import { useRouter } from "next/router";
+import { api } from "../lib/api";
+import { showToast } from "../components/Toast";
+
+const INDUSTRIES = [
+  "SaaS", "E-commerce", "Healthcare", "Real Estate", "Consulting",
+  "Marketing Agency", "Restaurant", "Fitness", "Education",
+  "Legal", "Construction", "Technology", "Finance", "Manufacturing",
+];
+
+const COMPANY_SIZES = [
+  { label: "1–10 employees (Startups)",        value: "1-10 employees" },
+  { label: "11–50 employees (Small)",           value: "11-50 employees" },
+  { label: "51–200 employees (Medium)",         value: "51-200 employees" },
+  { label: "201–1000 employees (Large)",        value: "201-1000 employees" },
+  { label: "1000+ employees (Enterprise)",      value: "1000+ employees" },
+];
+
+const DEFAULT_FORM = {
+  industry:    "SaaS",
+  location:    "United States",
+  companySize: "1-50 employees",
+  count:       10,
+  autoAdd:     true,
+};
 
 export default function DiscoverPage() {
   const router = useRouter();
-  const [form, setForm] = useState({
-    industry: "SaaS",
-    location: "United States",
-    companySize: "1-50 employees",
-    count: 10,
-    autoAdd: true,
-  });
+  const [form,        setForm]       = useState(DEFAULT_FORM);
   const [discovering, setDiscovering] = useState(false);
-  const [results, setResults] = useState(null);
+  const [results,     setResults]    = useState(null);
 
   async function handleDiscover(e) {
     e.preventDefault();
@@ -22,14 +47,14 @@ export default function DiscoverPage() {
     try {
       const result = await api.discoverLeads(form);
       setResults(result);
-      
+      showToast(`Discovered ${result.discovered} leads`, "success");
+
       if (form.autoAdd) {
-        setTimeout(() => {
-          router.push("/");
-        }, 3000);
+        // Give the user a moment to see the results before redirecting
+        setTimeout(() => router.push("/"), 3000);
       }
     } catch (err) {
-      alert(`Discovery failed: ${err.message}`);
+      showToast(`Discovery failed: ${err.message}`, "error");
     } finally {
       setDiscovering(false);
     }
@@ -49,7 +74,9 @@ export default function DiscoverPage() {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "400px 1fr", gap: "24px" }}>
-        {/* Discovery Form */}
+        {/* ---------------------------------------------------------------- */}
+        {/* Search criteria form                                              */}
+        {/* ---------------------------------------------------------------- */}
         <div className="card">
           <div className="card-header">
             <div className="card-title">Search Criteria</div>
@@ -63,20 +90,9 @@ export default function DiscoverPage() {
                 value={form.industry}
                 onChange={(e) => setForm({ ...form, industry: e.target.value })}
               >
-                <option value="SaaS">SaaS / Software</option>
-                <option value="E-commerce">E-commerce</option>
-                <option value="Healthcare">Healthcare</option>
-                <option value="Real Estate">Real Estate</option>
-                <option value="Consulting">Consulting</option>
-                <option value="Marketing Agency">Marketing Agency</option>
-                <option value="Restaurant">Restaurant / Food Service</option>
-                <option value="Fitness">Fitness / Wellness</option>
-                <option value="Education">Education</option>
-                <option value="Legal">Legal Services</option>
-                <option value="Construction">Construction</option>
-                <option value="Technology">Technology</option>
-                <option value="Finance">Finance</option>
-                <option value="Manufacturing">Manufacturing</option>
+                {INDUSTRIES.map((industry) => (
+                  <option key={industry} value={industry}>{industry}</option>
+                ))}
               </select>
             </div>
 
@@ -97,11 +113,9 @@ export default function DiscoverPage() {
                 value={form.companySize}
                 onChange={(e) => setForm({ ...form, companySize: e.target.value })}
               >
-                <option value="1-10 employees">1-10 employees (Startups)</option>
-                <option value="11-50 employees">11-50 employees (Small)</option>
-                <option value="51-200 employees">51-200 employees (Medium)</option>
-                <option value="201-1000 employees">201-1000 employees (Large)</option>
-                <option value="1000+ employees">1000+ employees (Enterprise)</option>
+                {COMPANY_SIZES.map(({ label, value }) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
               </select>
             </div>
 
@@ -110,10 +124,10 @@ export default function DiscoverPage() {
               <input
                 className="form-input"
                 type="number"
-                min="1"
-                max="20"
+                min={1}
+                max={20}
                 value={form.count}
-                onChange={(e) => setForm({ ...form, count: parseInt(e.target.value) })}
+                onChange={(e) => setForm({ ...form, count: parseInt(e.target.value, 10) })}
               />
               <div style={{ fontSize: "12px", color: "var(--text-tertiary)", marginTop: "4px" }}>
                 Maximum 20 leads per search
@@ -141,8 +155,8 @@ export default function DiscoverPage() {
             >
               {discovering ? (
                 <>
-                  <div className="spinner" style={{ width: "16px", height: "16px", borderWidth: "2px" }}></div>
-                  Discovering...
+                  <div className="spinner" style={{ width: "16px", height: "16px", borderWidth: "2px" }} />
+                  Discovering…
                 </>
               ) : (
                 <>
@@ -154,26 +168,30 @@ export default function DiscoverPage() {
               )}
             </button>
 
+            {/* How it works */}
             <div style={{ marginTop: "24px", padding: "16px", background: "var(--bg-secondary)", borderRadius: "var(--radius)", border: "1px solid var(--border)" }}>
               <div style={{ fontSize: "13px", fontWeight: 500, marginBottom: "8px" }}>How it works</div>
-              <ul style={{ fontSize: "13px", color: "var(--text-secondary)", lineHeight: "1.6", paddingLeft: "20px", margin: 0 }}>
+              <ul style={{ fontSize: "13px", color: "var(--text-secondary)", lineHeight: "1.8", paddingLeft: "20px", margin: 0 }}>
                 <li>AI generates realistic leads matching your criteria</li>
                 <li>Each lead includes contact info and pain points</li>
-                <li>Leads are tagged with discovery source</li>
+                <li>Leads are tagged with their discovery source</li>
                 <li>Ready for immediate outreach</li>
               </ul>
             </div>
           </form>
         </div>
 
-        {/* Results */}
+        {/* ---------------------------------------------------------------- */}
+        {/* Results panel                                                      */}
+        {/* ---------------------------------------------------------------- */}
         <div>
+          {/* Discovering spinner */}
           {discovering && (
             <div className="card">
               <div style={{ textAlign: "center", padding: "64px 32px" }}>
-                <div className="spinner" style={{ margin: "0 auto 24px" }}></div>
+                <div className="spinner" style={{ margin: "0 auto 24px" }} />
                 <div style={{ fontSize: "16px", fontWeight: 500, marginBottom: "8px" }}>
-                  Discovering leads...
+                  Discovering leads…
                 </div>
                 <div style={{ fontSize: "14px", color: "var(--text-secondary)" }}>
                   AI is generating {form.count} potential customers in {form.industry}
@@ -182,6 +200,7 @@ export default function DiscoverPage() {
             </div>
           )}
 
+          {/* Results */}
           {results && (
             <div className="card fade-in">
               <div className="card-header">
@@ -228,19 +247,28 @@ export default function DiscoverPage() {
                 ))}
               </div>
 
+              {/* Auto-redirect notice */}
               {form.autoAdd && (
-                <div style={{ marginTop: "24px", padding: "16px", background: "var(--success)", color: "white", borderRadius: "var(--radius)", textAlign: "center" }}>
+                <div style={{
+                  marginTop: "24px",
+                  padding: "16px",
+                  background: "var(--success)",
+                  color: "white",
+                  borderRadius: "var(--radius)",
+                  textAlign: "center",
+                }}>
                   <div style={{ fontSize: "14px", fontWeight: 500, marginBottom: "4px" }}>
                     ✓ Leads added successfully
                   </div>
                   <div style={{ fontSize: "13px", opacity: 0.9 }}>
-                    Redirecting to leads page...
+                    Redirecting to leads page…
                   </div>
                 </div>
               )}
             </div>
           )}
 
+          {/* Idle placeholder */}
           {!discovering && !results && (
             <div className="card">
               <div className="empty-state">
@@ -251,7 +279,7 @@ export default function DiscoverPage() {
                 </div>
                 <h3 className="empty-state-title">Ready to discover leads</h3>
                 <p className="empty-state-description">
-                  Configure your search criteria and click "Discover Leads" to find potential customers
+                  Configure your search criteria and click "Discover Leads"
                 </p>
               </div>
             </div>

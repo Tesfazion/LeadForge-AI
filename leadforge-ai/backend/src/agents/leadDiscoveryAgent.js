@@ -1,260 +1,172 @@
-import { openai } from "../lib/openai.js";
-import * as apollo from "./integrations/apolloIntegration.js";
-import * as hunter from "./integrations/hunterIntegration.js";
-import * as clearbit from "./integrations/clearbitIntegration.js";
-
 /**
  * Lead Discovery Agent
- * 
- * Generates potential leads based on search criteria.
- * In production, this would integrate with:
- * - Apollo.io API
- * - Clearbit Prospector
- * - Hunter.io
- * - LinkedIn Sales Navigator
- * - Google Maps API for local businesses
- * 
- * For now, this demonstrates the concept with AI-generated leads
- * that you can later replace with real API calls.
+ *
+ * Entry point: `discoverLeads(criteria)` — exported and called by the
+ * /discovery/search route.
+ *
+ * Source priority (controlled by `criteria.source`):
+ *   1. Apollo.io  — if APOLLO_API_KEY is set
+ *   2. Clearbit   — if CLEARBIT_API_KEY is set
+ *   3. AI fallback — GPT-4o-mini generates realistic fictional leads
+ *
+ * When `source` is "auto" (default), the agent tries each real source in
+ * order and falls back to AI if none are configured or if they fail.
+ * Pass `source: "ai"` to skip all real sources regardless of config.
+ *
+ * Real per-source logic lives in the integrations/ folder:
+ *   - integrations/apolloIntegration.js
+ *   - integrations/clearbitIntegration.js
+ *   - integrations/hunterIntegration.js
  */
 
+import { openai } from "../lib/openai.js";
+import * as apollo   from "./integrations/apolloIntegration.js";
+import * as clearbit from "./integrations/clearbitIntegration.js";
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
 /**
- * Discover leads based on criteria
- * @param {Object} criteria - Search criteria
- * @param {string} criteria.industry - Target industry (e.g., "SaaS", "E-commerce")
- * @param {string} criteria.location - Geographic location
- * @param {string} criteria.companySize - Company size range
- * @param {number} criteria.count - Number of leads to generate
+ * Discover leads based on search criteria.
+ *
+ * @param {object}  criteria
+ * @param {string}  [criteria.industry="technology"]   - Target industry
+ * @param {string}  [criteria.location="United States"] - Geographic location
+ * @param {string}  [criteria.companySize="1-50 employees"] - Company size range
+ * @param {number}  [criteria.count=5]                 - Number of leads to return
+ * @param {string}  [criteria.source="auto"]           - "auto"|"apollo"|"clearbit"|"ai"
+ * @returns {Promise<Array<{name,email,company,source,notes}>>}
  */
 export async function discoverLeads(criteria) {
   const {
-    industry = "technology",
-    location = "United States",
+    industry    = "technology",
+    location    = "United States",
     companySize = "1-50 employees",
-    count = 5,
-    source = "auto", // "auto", "apollo", "hunter", "clearbit", "ai"
+    count       = 5,
+    source      = "auto",
   } = criteria;
 
-  // Try real sources first if API keys are configured
-  if (source === "auto" || source === "apollo") {
-    if (process.env.APOLLO_API_KEY) {
-      try {
-        return await discoverFromApollo(criteria);
-      } catch (err) {
-        console.error("Apollo discovery failed:", err.message);
-        if (source === "apollo") throw err;
-      }
+  // Attempt Apollo if the key is present and not explicitly bypassed
+  if ((source === "auto" || source === "apollo") && process.env.APOLLO_API_KEY) {
+    try {
+      return await discoverFromApollo({ industry, location, companySize, count });
+    } catch (err) {
+      console.error("[discoverLeads] Apollo failed:", err.message);
+      if (source === "apollo") throw err; // caller explicitly wanted Apollo → propagate
     }
   }
 
-  if (source === "auto" || source === "clearbit") {
-    if (process.env.CLEARBIT_API_KEY) {
-      try {
-        return await discoverFromClearbit(criteria);
-      } catch (err) {
-        console.error("Clearbit discovery failed:", err.message);
-        if (source === "clearbit") throw err;
-      }
+  // Attempt Clearbit if the key is present and not explicitly bypassed
+  if ((source === "auto" || source === "clearbit") && process.env.CLEARBIT_API_KEY) {
+    try {
+      return await discoverFromClearbit({ count });
+    } catch (err) {
+      console.error("[discoverLeads] Clearbit failed:", err.message);
+      if (source === "clearbit") throw err;
     }
   }
 
-  // Fallback to AI generation
-  return await discoverFromAI(criteria);
+  // AI fallback — always available
+  return await discoverFromAI({ industry, location, companySize, count });
 }
 
-async function discoverFromApollo(criteria) {
-  const { industry, location, companySize, count } = criteria;
-  
-  const industryIds = apollo.APOLLO_INDUSTRIES[industry] 
-    ? [apollo.APOLLO_INDUSTRIES[industry]] 
+// ---------------------------------------------------------------------------
+// Private helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Discover leads via the Apollo.io integration.
+ * Mapped to Apollo's person-search endpoint by apolloIntegration.js.
+ */
+async function discoverFromApollo({ industry, location, companySize, count }) {
+  const industryId     = apollo.APOLLO_INDUSTRIES?.[industry]
+    ? [apollo.APOLLO_INDUSTRIES[industry]]
     : null;
-  
-  const employeeRange = apollo.mapCompanySizeToApollo(companySize);
-  
+  const employeeRange  = apollo.mapCompanySizeToApollo?.(companySize);
+
   const result = await apollo.searchPeople({
     personTitles: ["CEO", "CTO", "Founder", "VP Engineering", "Head of Product"],
-    organizationIndustryTagIds: industryIds,
-    organizationNumEmployeesRanges: [employeeRange],
-    personLocations: location ? [location] : null,
+    organizationIndustryTagIds: industryId,
+    organizationNumEmployeesRanges: employeeRange ? [employeeRange] : undefined,
+    personLocations: location ? [location] : undefined,
     perPage: count,
   });
 
   return result.people.slice(0, count);
 }
 
-async function discoverFromClearbit(criteria) {
-  const { count } = criteria;
-  
+/**
+ * Discover leads via the Clearbit Prospector integration.
+ */
+async function discoverFromClearbit({ count }) {
   const result = await clearbit.prospectorSearch({
-    role: ["ceo", "cto", "founder", "vp"],
+    role:      ["ceo", "cto", "founder", "vp"],
     seniority: ["executive", "director"],
-    perPage: count,
+    perPage:   count,
   });
 
   return result.results.slice(0, count);
 }
 
-async function discoverFromAI(criteria) {
-  const {
-    industry = "technology",
-    location = "United States",
-    companySize = "1-50 employees",
-    count = 5,
-  } = criteria;
-
-  // In production, you would call real APIs here:
-  // const apolloLeads = await fetchFromApollo(criteria);
-  // const hunterLeads = await fetchFromHunter(criteria);
-  
-  // For demonstration, we'll generate realistic-looking leads with AI
-  const prompt = `Generate ${count} realistic B2B leads (potential customers) for a web development/automation agency.
+/**
+ * AI fallback — generates realistic but fictional leads using GPT-4o-mini.
+ * Used when no real lead-source API keys are configured, or when
+ * `source: "ai"` is explicitly requested.
+ *
+ * ⚠️  All names, emails, and companies are fictional and for demo purposes only.
+ */
+async function discoverFromAI({ industry, location, companySize, count }) {
+  const prompt = `Generate ${count} realistic B2B leads (potential customers) for a web development / automation agency.
 
 Target criteria:
 - Industry: ${industry}
 - Location: ${location}
 - Company size: ${companySize}
 
-For each lead, provide:
+For each lead include:
 1. Company name (realistic but fictional)
 2. Contact person name (realistic but fictional)
 3. Email (format: firstname.lastname@company.com)
 4. Job title (decision-maker level: CEO, CTO, Marketing Director, etc.)
-5. Company description (1 sentence)
-6. Pain point / need (why they might need web dev services)
+5. Company description (one sentence)
+6. Pain point — why they might need web dev services
 
-Respond as strict JSON array:
-[
-  {
-    "name": "Person Name",
-    "email": "person@company.com",
-    "company": "Company Name",
-    "jobTitle": "Title",
-    "companyDescription": "Brief description",
-    "painPoint": "Their potential need",
-    "source": "AI Discovery - ${industry}"
-  }
-]`;
+Respond as strict JSON object:
+{
+  "leads": [
+    {
+      "name": "Person Name",
+      "email": "person@company.com",
+      "company": "Company Name",
+      "jobTitle": "Title",
+      "companyDescription": "Brief description",
+      "painPoint": "Their potential need",
+      "source": "AI Discovery - ${industry}"
+    }
+  ]
+}`;
 
   const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [{ role: "user", content: prompt }],
+    model:           "gpt-4o-mini",
+    messages:        [{ role: "user", content: prompt }],
     response_format: { type: "json_object" },
-    temperature: 0.8,
+    temperature:     0.8,
   });
 
-  const raw = completion.choices[0]?.message?.content ?? "{}";
+  const raw    = completion.choices[0]?.message?.content ?? "{}";
   const parsed = JSON.parse(raw);
-  
-  // The response might be wrapped in an object with a 'leads' key
-  const leads = Array.isArray(parsed) ? parsed : (parsed.leads || []);
-  
-  return leads.map(lead => ({
-    name: lead.name,
-    email: lead.email,
+  const leads  = parsed.leads ?? (Array.isArray(parsed) ? parsed : []);
+
+  return leads.map((lead) => ({
+    name:    lead.name,
+    email:   lead.email,
     company: lead.company,
-    source: lead.source || `AI Discovery - ${industry}`,
-    notes: `Job Title: ${lead.jobTitle}\nCompany: ${lead.companyDescription}\nPain Point: ${lead.painPoint}`,
+    source:  lead.source ?? `AI Discovery - ${industry}`,
+    notes:   [
+      `Job Title: ${lead.jobTitle}`,
+      `Company: ${lead.companyDescription}`,
+      `Pain Point: ${lead.painPoint}`,
+    ].join("\n"),
   }));
-}
-
-/**
- * Integration placeholders for real lead sources
- * Uncomment and implement when you have API keys
- */
-
-// Apollo.io Integration
-export async function fetchFromApollo(criteria) {
-  if (!process.env.APOLLO_API_KEY) {
-    throw new Error("APOLLO_API_KEY not configured");
-  }
-  
-  const response = await fetch("https://api.apollo.io/v1/mixed_people/search", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Cache-Control": "no-cache",
-      "X-Api-Key": process.env.APOLLO_API_KEY,
-    },
-    body: JSON.stringify({
-      // API parameters - see https://apolloio.github.io/apollo-api-docs/
-      person_titles: ["CEO", "CTO", "Founder", "Marketing Director"],
-      organization_num_employees_ranges: [criteria.companySize],
-      // ... add more filters
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Apollo API error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  
-  return data.people?.map(person => ({
-    name: person.name,
-    email: person.email,
-    company: person.organization?.name,
-    source: "Apollo.io",
-    notes: `Title: ${person.title}\nLinkedIn: ${person.linkedin_url}`,
-  })) || [];
-}
-
-// Hunter.io Integration
-export async function fetchFromHunter(criteria) {
-  if (!process.env.HUNTER_API_KEY) {
-    throw new Error("HUNTER_API_KEY not configured");
-  }
-
-  // Example: domain search
-  const domain = criteria.domain || "example.com";
-  const response = await fetch(
-    `https://api.hunter.io/v2/domain-search?domain=${domain}&api_key=${process.env.HUNTER_API_KEY}`
-  );
-
-  if (!response.ok) {
-    throw new Error(`Hunter API error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  
-  return data.data?.emails?.map(email => ({
-    name: `${email.first_name} ${email.last_name}`,
-    email: email.value,
-    company: data.data.domain,
-    source: "Hunter.io",
-    notes: `Position: ${email.position}\nDepartment: ${email.department}`,
-  })) || [];
-}
-
-// Clearbit Prospector Integration
-export async function fetchFromClearbit(criteria) {
-  if (!process.env.CLEARBIT_API_KEY) {
-    throw new Error("CLEARBIT_API_KEY not configured");
-  }
-
-  const response = await fetch("https://prospector.clearbit.com/v1/people/search", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${process.env.CLEARBIT_API_KEY}`,
-    },
-    body: JSON.stringify({
-      // API parameters
-      role: ["ceo", "cto", "founder"],
-      // ... add more filters
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Clearbit API error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  
-  return data.results?.map(person => ({
-    name: person.name,
-    email: person.email,
-    company: person.company?.name,
-    source: "Clearbit",
-    notes: `Role: ${person.role}\nSeniority: ${person.seniority}`,
-  })) || [];
 }

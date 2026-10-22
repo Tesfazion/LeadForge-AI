@@ -1,3 +1,16 @@
+/**
+ * Chat route
+ *
+ * Handles the back-and-forth conversation between a lead and the AI agent.
+ * The reply endpoint is designed to accept an inbound lead message (from an
+ * email webhook, or simulated via the dashboard) and immediately generate an
+ * AI response using the full stored history as context.
+ *
+ * Endpoints:
+ *   POST /chat/:conversationId/reply  — persist lead message, get AI reply
+ *   GET  /chat/:conversationId        — full transcript
+ */
+
 import { Router } from "express";
 import { prisma } from "../lib/prisma.js";
 import { continueConversation } from "../agents/chatAgent.js";

@@ -1,15 +1,30 @@
 /**
  * OAuth Integration Manager
- * Handles authentication and data access for:
- * - Email (Gmail)
- * - LinkedIn
- * - Instagram (Meta/Facebook)
- * - GitHub
+ *
+ * Manages OAuth2 tokens and connection state for the four supported platforms:
+ *   Gmail · LinkedIn · Instagram (Meta) · GitHub
+ *
+ * ⚠️  PERSISTENCE WARNING
+ * `connectedAccounts` is a plain in-memory Map.  All connected accounts and
+ * their access tokens are lost whenever the Node process restarts.
+ *
+ * Migration path for production:
+ *   1. Add an `OAuthAccount` model to prisma/schema.prisma with fields:
+ *        userId, platform, accessToken (encrypted), refreshToken (encrypted),
+ *        expiresAt, profile (Json), connectedAt, lastSyncedAt.
+ *   2. Replace the Map read/write calls below with Prisma queries.
+ *   3. Encrypt tokens at rest — never store raw access tokens in the DB.
+ *
+ * This file is intentionally kept simple for the prototype phase.
  */
 
 import { prisma } from "./prisma.js";
 
-// Store connected accounts in memory (use database in production)
+// ---------------------------------------------------------------------------
+// In-memory store — see persistence warning in the module header above
+// ---------------------------------------------------------------------------
+
+/** key: `"${userId}-${platform}"` → value: account object */
 const connectedAccounts = new Map();
 
 /**

@@ -3,28 +3,32 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=20.x"
+  },
   "scripts": {
-    "dev": "node --watch src/server.js",
-    "start": "node src/server.js",
+    "dev":             "node --watch src/server.js",
+    "start":           "node src/server.js",
+    "vercel-build":    "prisma generate",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio"
+    "prisma:migrate":  "prisma migrate deploy",
+    "prisma:studio":   "prisma studio"
   },
   "dependencies": {
-    "@prisma/client": "^5.20.0",
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.5",
-    "express": "^4.21.0",
-    "googleapis": "^144.0.0",
-    "helmet": "^7.1.0",
-    "imap": "^0.8.19",
-    "mailparser": "^3.9.14",
-    "morgan": "^1.10.0",
-    "nodemailer": "^6.9.15",
-    "openai": "^4.68.0",
-    "swagger-ui-express": "^5.0.1",
-    "yamljs": "^0.3.0",
-    "zod": "^3.23.8"
+    "@prisma/client":    "^5.20.0",
+    "cors":              "^2.8.5",
+    "dotenv":            "^16.4.5",
+    "express":           "^4.21.0",
+    "googleapis":        "^144.0.0",
+    "helmet":            "^7.1.0",
+    "imap":              "^0.8.19",
+    "mailparser":        "^3.9.14",
+    "morgan":            "^1.10.0",
+    "nodemailer":        "^6.9.15",
+    "openai":            "^4.68.0",
+    "swagger-ui-express":"^5.0.1",
+    "yamljs":            "^0.3.0",
+    "zod":               "^3.23.8"
   },
   "devDependencies": {
     "prisma": "^5.20.0"
