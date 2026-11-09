@@ -47,33 +47,44 @@ provision on your behalf:
 - **Outlook/Graph sending**: only Gmail OAuth2 is wired in `src/lib/mailer.js`;
   the function signature is provider-agnostic so swapping in Graph is a
   same-file change.
-- **Supabase auth on the dashboard itself**: not added — add it in the frontend
-  when you're ready to have multiple team members log in.
+- **Payments**: Stripe configuration status is scaffolded, but checkout,
+  subscription management, webhooks, and payment methods are not active.
+- **Per-workspace inboxes**: email monitoring stays disabled until mailbox
+  connections and stored tokens are workspace-specific.
 
 ## Setup
 
-### 1. Backend
+### 1. Authentication and secrets
+
+The dashboard uses Supabase Auth and provisions one workspace per account.
+Set the project URL and public anon/publishable key in both frontend and backend
+environment files. See [BYOK_AND_BILLING.md](./BYOK_AND_BILLING.md) for where to
+find these values and for database migration, AI-key, and billing details.
+
+### 2. Backend
 ```bash
 cd backend
-cp .env.example .env    # fill in DATABASE_URL, OPENAI_API_KEY, Gmail + Vercel creds
+cp .env.example .env    # fill in DATABASE_URL and server credentials
 npm install
-npm run prisma:migrate  # creates tables
+npm run prisma:migrate  # applies migrations (see baseline instructions first)
 npm run dev              # http://localhost:4000
 ```
 
-### 2. Frontend
+### 3. Frontend
 ```bash
 cd frontend
 cp .env.local.example .env.local
+                         # add the Supabase project URL and public key
 npm install
-npm run dev               # http://localhost:3000
+npm run dev               # http://localhost:1101
 ```
 
 ## Getting each credential
 
 - **DATABASE_URL**: easiest path is a free [Supabase](https://supabase.com) project
   → Project Settings → Database → Connection string.
-- **OPENAI_API_KEY**: platform.openai.com → API keys.
+- **OPENAI_API_KEY** (optional server-managed fallback): OpenRouter API keys
+  can also be added by each workspace in Settings.
 - **Gmail sending**: see the setup comment at the top of `backend/src/lib/mailer.js`
   (Google Cloud Console → Gmail API → OAuth2 → OAuth Playground for a refresh token).
 - **VERCEL_TOKEN**: vercel.com/account/tokens.

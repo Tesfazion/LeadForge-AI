@@ -18,7 +18,7 @@ import {
 } from "recharts";
 
 export default function AnalyticsPage() {
-  const { data: leads } = useSWR("leads", api.getLeads);
+  const { data: leads, error } = useSWR("leads", api.getLeads);
 
   const analytics = useMemo(() => {
     if (!leads) return null;
@@ -86,39 +86,78 @@ export default function AnalyticsPage() {
     };
   }, [leads]);
 
-  const COLORS = ["#0ea5e9", "#8b5cf6", "#10b981", "#f59e0b", "#ef4444", "#6366f1"];
+  // Download the raw lead data as CSV (the Export Report button had no handler)
+  function handleExport() {
+    if (!leads?.length) return;
+
+    const columns = ["id", "name", "email", "company", "status", "source", "createdAt"];
+    const escape = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+    const csv = [
+      columns.join(","),
+      ...leads.map((lead) => columns.map((column) => escape(lead[column])).join(",")),
+    ].join("\r\n");
+
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `leadforge-analytics-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  const COLORS = ["#FF7A00", "#007ACC", "#10b981", "#f59e0b", "#ef4444", "#7FA8FF"];
+
+  const header = (
+    <div className="page-header">
+      <div className="page-header-row">
+        <div>
+          <h1 className="page-title">Analytics</h1>
+          <p className="page-description">
+            Track performance and gain insights from your lead generation efforts
+          </p>
+        </div>
+        <div className="page-actions">
+          <button className="btn btn-secondary" onClick={handleExport} disabled={!leads?.length}>
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+            </svg>
+            Export Report
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Keep the page header mounted in every state so a failed request never
+  // leaves the user staring at a bare spinner with no context.
+  if (error) {
+    return (
+      <>
+        {header}
+        <div className="banner banner-error">
+          Couldn&apos;t load analytics. Check that the API is reachable, then reload.
+        </div>
+      </>
+    );
+  }
 
   if (!analytics) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "400px" }}>
-        <div className="spinner"></div>
-      </div>
+      <>
+        {header}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "320px" }}>
+          <div className="spinner"></div>
+        </div>
+      </>
     );
   }
 
   return (
     <>
-      <div className="page-header">
-        <div className="page-header-row">
-          <div>
-            <h1 className="page-title">Analytics</h1>
-            <p className="page-description">
-              Track performance and gain insights from your lead generation efforts
-            </p>
-          </div>
-          <div className="page-actions">
-            <button className="btn btn-secondary">
-              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-              </svg>
-              Export Report
-            </button>
-          </div>
-        </div>
-      </div>
+      {header}
 
       {/* Key Metrics */}
-      <div className="stats-grid" style={{ marginBottom: "32px" }}>
+      <div className="stats-grid">
         <div className="stat-card">
           <div className="stat-card-header">
             <span className="stat-label">Conversion Rate</span>
@@ -173,7 +212,7 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Charts Row 1 */}
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "24px", marginBottom: "24px" }}>
+      <div className="grid-aside mb-24">
         {/* Lead Growth */}
         <div className="card">
           <div className="card-header">
@@ -195,7 +234,7 @@ export default function AnalyticsPage() {
                   fontSize: "13px"
                 }} 
               />
-              <Line type="monotone" dataKey="leads" stroke="#0ea5e9" strokeWidth={2} dot={{ fill: "#0ea5e9" }} />
+              <Line type="monotone" dataKey="leads" stroke="#007ACC" strokeWidth={2} dot={{ fill: "#007ACC" }} />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -217,7 +256,7 @@ export default function AnalyticsPage() {
                 labelLine={false}
                 label={(entry) => entry.name}
                 outerRadius={80}
-                fill="#8884d8"
+                fill="#007ACC"
                 dataKey="value"
               >
                 {analytics.statusData.map((entry, index) => (
@@ -238,7 +277,7 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Charts Row 2 */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
+      <div className="grid-2">
         {/* Conversion Funnel */}
         <div className="card">
           <div className="card-header">
@@ -260,7 +299,7 @@ export default function AnalyticsPage() {
                   fontSize: "13px"
                 }} 
               />
-              <Bar dataKey="count" fill="#8b5cf6" />
+              <Bar dataKey="count" fill="#FF7A00" />
             </BarChart>
           </ResponsiveContainer>
         </div>

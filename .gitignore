@@ -58,7 +58,6 @@ Thumbs.db
 out
 
 # Prisma
-/leadforge-ai/backend/prisma/migrations/*_*
 !/leadforge-ai/backend/prisma/migrations/migration_lock.toml
 
 # Local development

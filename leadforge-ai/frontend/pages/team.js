@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Modal from "../components/Modal";
 
 export default function TeamPage() {
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -71,13 +72,13 @@ export default function TeamPage() {
   ];
 
   const getRoleBadge = (role) => {
-    const colors = {
-      admin: "badge-error",
-      manager: "badge-warning",
-      member: "badge-primary",
+    const badges = {
+      admin:  "badge-primary",
+      manager:"badge-info",
+      member: "badge-gray",
       viewer: "badge-gray",
     };
-    return colors[role] || "badge-gray";
+    return badges[role] || "badge-gray";
   };
 
   return (
@@ -105,7 +106,7 @@ export default function TeamPage() {
       </div>
 
       {/* Team Stats */}
-      <div className="stats-grid" style={{ marginBottom: "32px" }}>
+      <div className="stats-grid">
         <div className="stat-card">
           <div className="stat-card-header">
             <span className="stat-label">Team Size</span>
@@ -160,12 +161,12 @@ export default function TeamPage() {
       </div>
 
       {/* Team Members */}
-      <div className="card" style={{ marginBottom: "24px" }}>
+      <div className="card mb-24">
         <div className="card-header">
           <div className="card-title">Team Members</div>
         </div>
 
-        <div className="table-container">
+        <div className="table-container table-scroll">
           <table className="table">
             <thead>
               <tr>
@@ -182,17 +183,7 @@ export default function TeamPage() {
                 <tr key={member.id}>
                   <td>
                     <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                      <div style={{
-                        width: "40px",
-                        height: "40px",
-                        borderRadius: "var(--radius-full)",
-                        background: "var(--primary-500)",
-                        color: "white",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontWeight: 600,
-                      }}>
+                      <div className="avatar" aria-hidden="true">
                         {member.name[0]}
                       </div>
                       <div>
@@ -229,11 +220,12 @@ export default function TeamPage() {
 
       {/* Roles & Permissions */}
       <div>
-        <h2 style={{ fontSize: "18px", fontWeight: 600, marginBottom: "16px" }}>
-          Roles & Permissions
-        </h2>
+        <div className="section-heading">
+          <h2>Roles &amp; permissions</h2>
+          <p>Every member is assigned exactly one role.</p>
+        </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "16px" }}>
+        <div className="grid-auto">
           {roles.map((role) => (
             <div key={role.value} className="card">
               <div style={{ marginBottom: "12px" }}>
@@ -260,76 +252,53 @@ export default function TeamPage() {
         </div>
       </div>
 
-      {/* Invite Modal (Coming Soon) */}
-      {showInviteModal && (
-        <div style={{
-          position: "fixed",
-          inset: 0,
-          background: "rgba(0, 0, 0, 0.5)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          zIndex: 1000,
-        }}>
-          <div className="card" style={{ maxWidth: "500px", width: "90%" }}>
-            <div className="card-header">
-              <div className="card-title">Invite Team Member</div>
-              <button className="btn btn-sm btn-ghost" onClick={() => setShowInviteModal(false)}>
-                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div style={{ padding: "24px 0" }}>
-              <div className="form-group">
-                <label className="form-label">Email Address</label>
-                <input
-                  className="form-input"
-                  type="email"
-                  placeholder="colleague@company.com"
-                  value={inviteForm.email}
-                  onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Role</label>
-                <select
-                  className="form-select"
-                  value={inviteForm.role}
-                  onChange={(e) => setInviteForm({ ...inviteForm, role: e.target.value })}
-                >
-                  <option value="member">Member</option>
-                  <option value="manager">Manager</option>
-                  <option value="viewer">Viewer</option>
-                  <option value="admin">Admin</option>
-                </select>
-              </div>
-
-              <div style={{
-                padding: "12px",
-                background: "var(--warning)",
-                color: "white",
-                borderRadius: "var(--radius)",
-                fontSize: "13px",
-                marginBottom: "16px",
-              }}>
-                <strong>Coming Soon:</strong> Team collaboration features are in development.
-              </div>
-
-              <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
-                <button className="btn btn-secondary" onClick={() => setShowInviteModal(false)}>
-                  Cancel
-                </button>
-                <button className="btn btn-primary" disabled>
-                  Send Invite
-                </button>
-              </div>
-            </div>
-          </div>
+      {/* Invite modal — shared accessible Modal component */}
+      <Modal
+        isOpen={showInviteModal}
+        onClose={() => setShowInviteModal(false)}
+        title="Invite team member"
+        maxWidth={520}
+      >
+        <div className="form-group">
+          <label className="form-label" htmlFor="invite-email">Email address</label>
+          <input
+            id="invite-email"
+            className="form-input"
+            type="email"
+            placeholder="colleague@company.com"
+            value={inviteForm.email}
+            onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
+          />
         </div>
-      )}
+
+        <div className="form-group">
+          <label className="form-label" htmlFor="invite-role">Role</label>
+          <select
+            id="invite-role"
+            className="form-select"
+            value={inviteForm.role}
+            onChange={(e) => setInviteForm({ ...inviteForm, role: e.target.value })}
+          >
+            <option value="member">Member</option>
+            <option value="manager">Manager</option>
+            <option value="viewer">Viewer</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+
+        <div className="banner banner-info" style={{ fontSize: "13px", marginBottom: "20px" }}>
+          Team collaboration is rolling out — invites will activate automatically.
+        </div>
+
+        <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+          <button className="btn btn-secondary" onClick={() => setShowInviteModal(false)}>
+            Cancel
+          </button>
+          <button className="btn btn-primary" disabled>
+            Send invite
+          </button>
+        </div>
+      </Modal>
     </>
   );
 }

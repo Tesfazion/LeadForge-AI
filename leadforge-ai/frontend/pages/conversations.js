@@ -50,27 +50,19 @@ export default function ConversationsPage() {
       </div>
 
       {/* Filter tabs */}
-      <div className="card" style={{ marginBottom: "24px" }}>
-        <div style={{ display: "flex", gap: "8px" }}>
+      <div className="card">
+        <div className="segmented" role="tablist" aria-label="Filter conversations">
           {filters.map(({ key, label, count }) => (
             <button
               key={key}
-              className={filter === key ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"}
+              type="button"
+              role="tab"
+              aria-selected={filter === key}
+              className={`segmented-item ${filter === key ? "active" : ""}`}
               onClick={() => setFilter(key)}
             >
               {label}
-              {count > 0 && (
-                <span style={{
-                  marginLeft: "6px",
-                  padding: "1px 6px",
-                  background: filter === key ? "rgba(255,255,255,0.25)" : "var(--bg-tertiary)",
-                  borderRadius: "var(--radius-full)",
-                  fontSize: "11px",
-                  fontWeight: 600,
-                }}>
-                  {count}
-                </span>
-              )}
+              {count > 0 && <span className="segmented-count">{count}</span>}
             </button>
           ))}
         </div>
@@ -94,7 +86,7 @@ export default function ConversationsPage() {
           </p>
           {filter === "all" && (
             <div style={{ marginTop: "24px" }}>
-              <Link href="/" className="btn btn-primary">View Leads</Link>
+              <Link href="/leads" className="btn btn-primary">View Leads</Link>
             </div>
           )}
         </div>
@@ -102,29 +94,17 @@ export default function ConversationsPage() {
 
       {/* Conversation cards */}
       {filteredLeads.length > 0 && (
-        <div style={{ display: "grid", gap: "16px" }}>
+        <div className="grid-stack">
           {filteredLeads.map((lead) => (
             <Link
               key={lead.id}
               href={`/leads/${lead.id}`}
-              className="card"
-              style={{ display: "block" }}
+              className="card is-interactive"
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: "12px" }}>
                 {/* Avatar + name */}
                 <div style={{ display: "flex", gap: "16px", alignItems: "start", flex: 1 }}>
-                  <div style={{
-                    width: "48px",
-                    height: "48px",
-                    borderRadius: "var(--radius-full)",
-                    background: "var(--primary-500)",
-                    color: "white",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontWeight: 600,
-                    flexShrink: 0,
-                  }}>
+                  <div className="avatar avatar-lg" aria-hidden="true">
                     {getInitial(lead.name || lead.email)}
                   </div>
 
@@ -156,14 +136,7 @@ export default function ConversationsPage() {
               </div>
 
               {/* Meta row */}
-              <div style={{
-                display: "flex",
-                gap: "24px",
-                fontSize: "13px",
-                color: "var(--text-tertiary)",
-                paddingTop: "12px",
-                borderTop: "1px solid var(--border)",
-              }}>
+              <div className="meta-row">
                 <span>Last updated: {formatDateTime(lead.updatedAt)}</span>
                 <span>Added: {formatDate(lead.createdAt)}</span>
               </div>

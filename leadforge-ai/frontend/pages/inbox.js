@@ -13,7 +13,7 @@ import Modal from "../components/Modal";
 
 export default function InboxPage() {
   const { data: emails, mutate: mutateEmails } = useSWR("inbox-emails", api.getEmails);
-  const { data: tasks,  mutate: mutateTasks  } = useSWR("inbox-tasks",  () => api.getEmails());
+  const { data: tasks,  mutate: mutateTasks  } = useSWR("inbox-tasks",  api.getInboxTasks);
   const { data: status } = useSWR("inbox-status", api.getInboxStatus, { refreshInterval: 5000 });
 
   const [selectedEmail, setSelectedEmail] = useState(null);
@@ -31,7 +31,7 @@ export default function InboxPage() {
     try {
       await api.completeTask(taskId);
       mutateTasks();
-      showToast("Task completed ✅", "success");
+      showToast("Task completed", "success");
     } catch (err) {
       showToast("Failed to complete task", "error");
     }
@@ -42,9 +42,7 @@ export default function InboxPage() {
     if (!email.read) handleMarkAsRead(email.id);
   }
 
-  // Derive task list from a separate endpoint; for now we piggyback the same
-  // SWR key since the backend returns tasks alongside inbox status.
-  const taskList = status?.tasks ?? [];
+  const taskList = tasks ?? [];
   const pendingTaskCount = taskList.filter((t) => !t.completed).length;
 
   return (
@@ -55,51 +53,29 @@ export default function InboxPage() {
           <div>
             <h1 className="page-title">Email Inbox &amp; Tasks</h1>
             <p className="page-description">
-              AI monitors your inbox and automatically creates leads and tasks
+              Workspace-specific mailbox connections are not available yet.
             </p>
           </div>
 
           {/* Monitoring status pill */}
           {status && (
-            <div style={{
-              padding: "8px 16px",
-              background: status.monitoring ? "var(--success-50)" : "var(--error-50)",
-              border: `1px solid ${status.monitoring ? "var(--success-200)" : "var(--error-200)"}`,
-              borderRadius: "var(--radius-full)",
-              fontSize: "14px",
-              fontWeight: 600,
-              color: status.monitoring ? "var(--success)" : "var(--error)",
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-            }}>
-              <div style={{
-                width: "8px",
-                height: "8px",
-                borderRadius: "50%",
-                background: status.monitoring ? "var(--success)" : "var(--error)",
-              }} />
-              {status.monitoring ? "Monitoring Active" : "Not Monitoring"}
+            <div className={`status-pill ${status.monitoring ? "is-live" : "is-offline"}`}>
+              <span className={`status-dot ${status.monitoring ? "is-live" : "is-offline"}`} aria-hidden="true" />
+              {status.monitoring ? "Monitoring active" : "Not monitoring"}
             </div>
           )}
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "24px" }}>
+      <div className="grid-aside">
         {/* ---------------------------------------------------------------- */}
         {/* Emails list                                                        */}
         {/* ---------------------------------------------------------------- */}
         <div>
           {/* Counter bar */}
-          <div className="card" style={{ marginBottom: "20px", padding: "16px 20px", background: "var(--bg-secondary)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <h3 style={{ fontSize: "16px", fontWeight: 600, margin: 0 }}>
-                Inbox ({status?.emailCount ?? 0})
-              </h3>
-              <span style={{ fontSize: "14px", color: "var(--text-secondary)" }}>
-                {status?.unreadCount ?? 0} unread
-              </span>
-            </div>
+          <div className="panel-head">
+            <h2>Inbox <span className="panel-head-count">{status?.emailCount ?? 0}</span></h2>
+            <span className="panel-head-meta">{status?.unreadCount ?? 0} unread</span>
           </div>
 
           {/* Empty state */}
@@ -113,7 +89,7 @@ export default function InboxPage() {
                 </div>
                 <h3 className="empty-state-title">No emails yet</h3>
                 <p className="empty-state-description">
-                  Configure email monitoring in .env to see incoming emails
+                  Email monitoring will be available when workspace-specific mailbox connections are enabled.
                 </p>
               </div>
             </div>
@@ -123,29 +99,17 @@ export default function InboxPage() {
           {emails?.map((email) => (
             <div
               key={email.id}
-              className="card"
-              style={{
-                marginBottom: "12px",
-                cursor: "pointer",
-                background: email.read ? "var(--bg-primary)" : "var(--bg-secondary)",
-                borderLeft: email.read ? "none" : "4px solid var(--primary-500)",
-              }}
+              className={`mail-card ${email.read ? "" : "is-unread"}`}
               onClick={() => handleEmailClick(email)}
             >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: "8px" }}>
-                <div style={{ fontWeight: email.read ? 400 : 600, fontSize: "14px" }}>
-                  {email.from}
-                </div>
-                <span style={{ fontSize: "12px", color: "var(--text-tertiary)", flexShrink: 0, marginLeft: "12px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", gap: "12px" }}>
+                <div className="mail-from">{email.from}</div>
+                <span style={{ fontSize: "12px", color: "var(--text-tertiary)", flexShrink: 0 }}>
                   {new Date(email.date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                 </span>
               </div>
-              <div style={{ fontSize: "15px", fontWeight: email.read ? 400 : 600, marginBottom: "6px" }}>
-                {email.subject}
-              </div>
-              <div style={{ fontSize: "14px", color: "var(--text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {email.text?.substring(0, 100)}…
-              </div>
+              <div className="mail-subject">{email.subject}</div>
+              <div className="mail-snippet">{email.text?.substring(0, 100)}…</div>
             </div>
           ))}
         </div>
@@ -154,10 +118,8 @@ export default function InboxPage() {
         {/* Tasks sidebar                                                      */}
         {/* ---------------------------------------------------------------- */}
         <div>
-          <div className="card" style={{ marginBottom: "20px", padding: "16px 20px", background: "var(--bg-secondary)" }}>
-            <h3 style={{ fontSize: "16px", fontWeight: 600, margin: 0 }}>
-              AI-Generated Tasks ({pendingTaskCount})
-            </h3>
+          <div className="panel-head">
+            <h2>AI-generated tasks <span className="panel-head-count">{pendingTaskCount}</span></h2>
           </div>
 
           {taskList.length === 0 ? (

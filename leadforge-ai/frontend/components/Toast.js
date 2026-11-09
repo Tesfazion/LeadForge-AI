@@ -45,14 +45,15 @@ export default function ToastContainer() {
           style={{
             padding: "16px 20px",
             borderRadius: "var(--radius)",
-            background: "white",
+            background: "var(--surface-solid)",
+            color: "var(--text-primary)",
             border: `1px solid ${
               toast.type === "success" ? "var(--success-200)" :
               toast.type === "error" ? "var(--error-200)" :
               toast.type === "warning" ? "var(--warning-200)" :
-              "var(--border)"
+              "var(--surface-border)"
             }`,
-            boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+            boxShadow: "var(--shadow-lg)",
             minWidth: "320px",
             maxWidth: "480px",
             display: "flex",

@@ -6,11 +6,11 @@ info:
     drafts and sends outreach, chats with prospects, extracts requirements, and generates/deploys websites.
     
     ## Authentication
-    Currently no authentication required for local development.
-    Production deployments should add JWT or API key authentication.
+    All workspace API routes require a Supabase Auth bearer token. Health checks,
+    email tracking pixels/redirects, and OAuth callbacks are public by design.
     
     ## Base URL
-    - Development: `http://localhost:1100`
+    - Development: `http://localhost:4000`
     - Production: Your deployed backend URL
     
   version: 1.0.0
@@ -22,7 +22,7 @@ info:
     url: https://opensource.org/licenses/MIT
 
 servers:
-  - url: http://localhost:1100
+  - url: http://localhost:4000
     description: Local development server
   - url: https://api.leadforge.ai
     description: Production server (if deployed)
@@ -46,10 +46,16 @@ tags:
     description: Real-time agent activity tracking
   - name: Tracking
     description: Email tracking (opens and clicks)
+  - name: Workspace
+    description: Workspace AI-key and billing configuration
+
+security:
+  - SupabaseBearer: []
 
 paths:
   /health:
     get:
+      security: []
       tags:
         - Health
       summary: Health check
@@ -121,6 +127,109 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Lead'
+
+  /leads/summary:
+    get:
+      tags:
+        - Leads
+      summary: Get dashboard summary
+      description: Return aggregated pipeline counts, bounded recent leads, source totals, and trend data without loading the complete lead collection.
+      parameters:
+        - name: range
+          in: query
+          required: false
+          schema:
+            type: integer
+            enum: [7, 30, 90]
+            default: 30
+      responses:
+        '200':
+          description: Aggregated workspace dashboard data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  statusCounts:
+                    type: object
+                    additionalProperties:
+                      type: integer
+                  contacted:
+                    type: integer
+                  responded:
+                    type: integer
+                  qualified:
+                    type: integer
+                  currentCount:
+                    type: integer
+                  previousCount:
+                    type: integer
+                  change:
+                    type: number
+                    nullable: true
+                  conversion:
+                    type: number
+                  responseRate:
+                    type: number
+                  pendingOutreachCount:
+                    type: integer
+                  trend:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        label:
+                          type: string
+                        leads:
+                          type: integer
+                  latestLeads:
+                    type: array
+                    maxItems: 5
+                    items:
+                      $ref: '#/components/schemas/Lead'
+                  sourceStats:
+                    type: object
+                    additionalProperties:
+                      type: integer
+
+  /leads/search:
+    get:
+      tags:
+        - Leads
+      summary: Search leads
+      description: Search lead names, emails, and companies for workspace navigation. Returns at most eight compact results.
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 120
+      responses:
+        '200':
+          description: Matching leads, capped at eight results
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 8
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    name:
+                      type: string
+                      nullable: true
+                    email:
+                      type: string
+                      format: email
+                    company:
+                      type: string
+                      nullable: true
 
   /leads/{id}:
     get:
@@ -537,14 +646,15 @@ paths:
                   lastActivity:
                     $ref: '#/components/schemas/Activity'
 
-  /track/open/{messageId}:
+  /track/open/{token}:
     get:
+      security: []
       tags:
         - Tracking
       summary: Track email open
       description: Tracking pixel endpoint (returns 1x1 transparent GIF)
       parameters:
-        - name: messageId
+        - name: token
           in: path
           required: true
           schema:
@@ -558,19 +668,15 @@ paths:
                 type: string
                 format: binary
 
-  /track/click/{messageId}/{linkId}:
+  /track/click/{token}:
     get:
+      security: []
       tags:
         - Tracking
       summary: Track link click
       description: Track when a link in an email is clicked
       parameters:
-        - name: messageId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: linkId
+        - name: token
           in: path
           required: true
           schema:
@@ -608,7 +714,56 @@ paths:
                     items:
                       type: object
 
+  /workspace/settings:
+    get:
+      tags:
+        - Workspace
+      summary: Get workspace integration status
+      responses:
+        '200':
+          description: Safe configuration status; stored keys are never returned
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /workspace/ai-key:
+    put:
+      tags:
+        - Workspace
+      summary: Save or replace the workspace OpenRouter key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [apiKey]
+              properties:
+                apiKey:
+                  type: string
+                  format: password
+      responses:
+        '200':
+          description: Key encrypted and saved
+        '400':
+          description: Invalid key
+        '503':
+          description: Server-side encryption is not configured
+    delete:
+      tags:
+        - Workspace
+      summary: Remove the workspace OpenRouter key
+      responses:
+        '200':
+          description: Workspace key removed
+
 components:
+  securitySchemes:
+    SupabaseBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
   schemas:
     Lead:
       type: object

@@ -122,7 +122,13 @@ export default function IntegrationsPage() {
 
   async function handleConnect(platformId) {
     showToast(`Redirecting to ${platformId} authorization…`, "info");
-    api.connectPlatform(platformId); // full-page redirect — intentional
+    setBusy(true);
+    try {
+      await api.connectPlatform(platformId);
+    } catch (err) {
+      showToast(`Could not connect ${platformId}: ${err.message}`, "error");
+      setBusy(false);
+    }
   }
 
   async function handleDisconnect(platformId) {
@@ -179,16 +185,13 @@ export default function IntegrationsPage() {
       {/* ------------------------------------------------------------------ */}
       {/* OAuth platform connections                                           */}
       {/* ------------------------------------------------------------------ */}
-      <section style={{ marginBottom: "48px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
-          <h2 style={{ fontSize: "20px", fontWeight: 700 }}>Connected Accounts</h2>
-          <span className="badge badge-primary">One-Click Connect</span>
+      <section className="mb-24">
+        <div className="section-heading">
+          <h2>Connected accounts</h2>
+          <p>Authenticate once and let the agents work with your data securely.</p>
         </div>
-        <p style={{ fontSize: "14px", color: "var(--text-secondary)", marginBottom: "24px" }}>
-          Authenticate once and let AI access your data securely
-        </p>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(480px, 1fr))", gap: "20px" }}>
+        <div className="grid-2">
           {oauthProviders.map((provider) => {
             const connected   = isConnected(provider.id);
             const accountInfo = getAccountInfo(provider.id);
@@ -199,50 +202,35 @@ export default function IntegrationsPage() {
               <div
                 key={provider.id}
                 className="card"
-                style={{ borderColor: connected ? "var(--success)" : undefined }}
+                style={{ borderColor: connected ? "var(--success-200)" : undefined }}
               >
-                {/* Top gradient accent */}
+                {/* Top status accent */}
                 <div style={{
                   height: "2px",
-                  background: connected
-                    ? "linear-gradient(90deg, var(--success), #34d399)"
-                    : "linear-gradient(90deg, var(--brand-primary), var(--brand-secondary), var(--brand-accent))",
+                  background: connected ? "var(--success)" : "var(--brand-primary)",
                   margin: "-24px -24px 20px",
                   borderRadius: "var(--radius-lg) var(--radius-lg) 0 0",
                 }} />
 
                 <div style={{ display: "flex", alignItems: "start", gap: "16px" }}>
-                  {/* Platform icon */}
-                  <div style={{
-                    width: "56px",
-                    height: "56px",
-                    borderRadius: "var(--radius-lg)",
-                    background: connected
-                      ? "rgba(16, 185, 129, 0.15)"
-                      : "rgba(99, 102, 241, 0.15)",
-                    border: `1px solid ${connected ? "var(--success-200)" : "var(--primary-700)"}`,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "28px",
-                    flexShrink: 0,
-                  }}>
-                    {provider.icon}
+                  {/* Platform monogram */}
+                  <div className={`logo-tile ${connected ? "is-connected" : ""}`} aria-hidden="true">
+                    {provider.name.charAt(0)}
                   </div>
 
                   <div style={{ flex: 1 }}>
                     {/* Name + badge */}
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: "6px" }}>
                       <div>
-                        <h3 style={{ fontSize: "18px", fontWeight: 700, margin: 0 }}>{provider.name}</h3>
+                        <h3 style={{ fontSize: "17px", fontWeight: 700, margin: 0 }}>{provider.name}</h3>
                         {provider.hasSharedApp && (
-                          <span className="badge badge-success" style={{ marginTop: "4px", fontSize: "10px" }}>
-                            ⚡ INSTANT
+                          <span className="badge badge-success" style={{ marginTop: "6px", fontSize: "10px" }}>
+                            Instant connect
                           </span>
                         )}
                       </div>
-                      <span className={`badge ${connected ? "badge-success" : "badge-warning"}`}>
-                        {connected ? "✓ Connected" : "Not Connected"}
+                      <span className={`badge ${connected ? "badge-success" : "badge-gray"}`}>
+                        {connected ? "Connected" : "Not connected"}
                       </span>
                     </div>
 
@@ -258,10 +246,10 @@ export default function IntegrationsPage() {
                           style={{
                             fontSize: "11px",
                             padding: "3px 10px",
-                            background: "rgba(99, 102, 241, 0.1)",
-                            border: "1px solid var(--primary-800)",
+                            background: "var(--primary-50)",
+                            border: "1px solid var(--primary-100)",
                             borderRadius: "var(--radius-sm)",
-                            color: "var(--primary-300)",
+                            color: "var(--primary-700)",
                           }}
                         >
                           {f}
@@ -273,14 +261,14 @@ export default function IntegrationsPage() {
                     {connected && accountInfo && (
                       <div style={{
                         padding: "10px 14px",
-                        background: "rgba(16, 185, 129, 0.08)",
-                        border: "1px solid var(--success-200)",
+                        background: "var(--success-50)",
+                        border: "1px solid var(--success-100)",
                         borderRadius: "var(--radius)",
                         marginBottom: "16px",
                         fontSize: "12px",
                       }}>
-                        <div style={{ fontWeight: 600, color: "var(--success)", marginBottom: "2px" }}>
-                          ✓ Connected Account
+                        <div style={{ fontWeight: 600, color: "var(--success-700)", marginBottom: "2px" }}>
+                          Connected account
                         </div>
                         <div style={{ color: "var(--text-secondary)" }}>
                           {accountInfo.profile?.email
@@ -302,7 +290,7 @@ export default function IntegrationsPage() {
                           onClick={() => handleConnect(provider.id)}
                           disabled={busy}
                         >
-                          {provider.hasSharedApp ? "🚀 Connect Now" : "🔗 Connect"}
+                          {provider.hasSharedApp ? "Connect now" : "Connect"}
                         </button>
                       ) : (
                         <>
@@ -311,13 +299,12 @@ export default function IntegrationsPage() {
                             onClick={() => handleLoadData(provider.id)}
                             disabled={busy}
                           >
-                            📥 Load Data
+                            Load data
                           </button>
                           <button
-                            className="btn btn-outline btn-sm"
+                            className="btn btn-sm btn-danger-outline"
                             onClick={() => handleDisconnect(provider.id)}
                             disabled={busy}
-                            style={{ color: "var(--error-200)", borderColor: "var(--error-700)" }}
                           >
                             Disconnect
                           </button>
@@ -356,19 +343,19 @@ export default function IntegrationsPage() {
       {/* API-key integrations                                                 */}
       {/* ------------------------------------------------------------------ */}
       <section>
-        <h2 style={{ fontSize: "20px", fontWeight: 700, marginBottom: "8px" }}>
-          Lead Source APIs
-        </h2>
-        <p style={{ fontSize: "14px", color: "var(--text-secondary)", marginBottom: "24px" }}>
-          Third-party services for lead discovery and enrichment — configure via .env
-        </p>
+        <div className="section-heading">
+          <h2>Lead source APIs</h2>
+          <p>Third-party services for discovery and enrichment — configured on the server.</p>
+        </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "20px" }}>
+        <div className="grid-3">
           {API_INTEGRATIONS.map((integration) => {
             const configured = isApiConfigured(integration);
             return (
               <div key={integration.name} className="card">
-                <div style={{ fontSize: "32px", marginBottom: "12px" }}>{integration.icon}</div>
+                <div className="logo-tile logo-tile-sm" style={{ marginBottom: "12px" }} aria-hidden="true">
+                  {integration.name.charAt(0)}
+                </div>
                 <h3 style={{ fontSize: "16px", fontWeight: 700, marginBottom: "6px" }}>
                   {integration.name}
                 </h3>
@@ -383,9 +370,9 @@ export default function IntegrationsPage() {
                       style={{
                         fontSize: "11px",
                         padding: "3px 8px",
-                        background: "rgba(99, 102, 241, 0.1)",
+                        background: "var(--primary-50)",
                         borderRadius: "var(--radius-sm)",
-                        color: "var(--primary-300)",
+                        color: "var(--primary-700)",
                       }}
                     >
                       {f}
@@ -395,7 +382,7 @@ export default function IntegrationsPage() {
 
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <span className={`badge ${configured ? "badge-success" : "badge-gray"}`}>
-                    {configured ? "✓ Configured" : "Not Configured"}
+                    {configured ? "Configured" : "Not configured"}
                   </span>
                   {!configured && (
                     <span style={{ fontSize: "12px", color: "var(--text-tertiary)" }}>

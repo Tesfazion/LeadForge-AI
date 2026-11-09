@@ -35,6 +35,8 @@ import { activitiesRouter }   from "./routes/activities.js";
 import { inboxRouter }        from "./routes/inbox.js";
 import { oauthRouter }        from "./routes/oauth.js";
 import { desktopRouter }      from "./routes/desktop.js";
+import { workspaceRouter }    from "./routes/workspace.js";
+import { requireWorkspace } from "./middleware/requireWorkspace.js";
 
 // Resolve __dirname for ES Modules (not available by default)
 const __filename = fileURLToPath(import.meta.url);
@@ -91,6 +93,7 @@ app.get("/api", (req, res) => {
       inbox:        "     /inbox",
       oauth:        "     /oauth",
       desktop:      "     /desktop",
+      workspace:    "     /workspace",
     },
   });
 });
@@ -109,6 +112,7 @@ app.use(
 // Route modules
 // ---------------------------------------------------------------------------
 
+app.use(requireWorkspace);
 app.use("/leads",        leadsRouter);
 app.use("/outreach",     outreachRouter);
 app.use("/chat",         chatRouter);
@@ -120,6 +124,7 @@ app.use("/activities",   activitiesRouter);
 app.use("/inbox",        inboxRouter);
 app.use("/oauth",        oauthRouter);
 app.use("/desktop",      desktopRouter);
+app.use("/workspace",    workspaceRouter);
 
 // ---------------------------------------------------------------------------
 // Central error handler

@@ -29,9 +29,9 @@ const nextConfig = {
 
     return [
       {
-        // Proxy /api/* → Express backend in local dev
+        // Proxy /api/* → Express backend in local dev (routes mounted at root, e.g. /leads)
         source:      "/api/:path*",
-        destination: `${apiBase}/api/:path*`,
+        destination: `${apiBase}/:path*`,
       },
     ];
   },

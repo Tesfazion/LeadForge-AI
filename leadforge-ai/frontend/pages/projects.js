@@ -47,26 +47,14 @@ export default function ProjectsPage() {
           <div className="card-title">How the Developer Agent Works</div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "24px" }}>
+        <div className="grid-auto" style={{ gap: "24px" }}>
           {HOW_IT_WORKS.map((item) => (
             <div key={item.step} style={{ textAlign: "center" }}>
-              <div style={{
-                width: "48px",
-                height: "48px",
-                borderRadius: "50%",
-                background: "var(--primary-600)",
-                color: "white",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "20px",
-                fontWeight: 700,
-                margin: "0 auto 12px",
-              }}>
+              <div className="step-badge" style={{ margin: "0 auto 12px" }}>
                 {item.step}
               </div>
               <div style={{ fontSize: "14px", fontWeight: 600, marginBottom: "4px" }}>{item.title}</div>
-              <div style={{ fontSize: "13px", color: "var(--text-secondary)" }}>{item.description}</div>
+              <div style={{ fontSize: "13px", color: "var(--text-secondary)", lineHeight: 1.6 }}>{item.description}</div>
             </div>
           ))}
         </div>
@@ -81,7 +69,7 @@ export default function ProjectsPage() {
 
       {/* Error */}
       {error && (
-        <div className="card" style={{ background: "var(--error-50)", color: "var(--error)", textAlign: "center" }}>
+        <div className="banner banner-error">
           Failed to load projects. Check your connection.
         </div>
       )}
@@ -112,7 +100,7 @@ export default function ProjectsPage() {
               To create your first project:
             </div>
             <ol style={{ paddingLeft: "20px", margin: 0, fontSize: "14px", lineHeight: "2", color: "var(--text-secondary)" }}>
-              <li>Add a lead or <Link href="/discover" style={{ color: "var(--primary-400)" }}>discover leads</Link></li>
+              <li>Add a lead or <Link href="/discover" className="text-link">discover leads</Link></li>
               <li>Send outreach and get a reply</li>
               <li>Have a conversation about their needs</li>
               <li>Click "Extract Requirements" on the lead page</li>
@@ -124,7 +112,7 @@ export default function ProjectsPage() {
 
       {/* Project cards */}
       {projects.length > 0 && (
-        <div style={{ display: "grid", gap: "16px" }}>
+        <div className="grid-stack">
           {projects.map((project) => (
             <div key={project.id} className="card">
               {/* Header row */}
@@ -137,7 +125,7 @@ export default function ProjectsPage() {
                     For:{" "}
                     <Link
                       href={`/leads/${project.lead.id}`}
-                      style={{ color: "var(--primary-400)", fontWeight: 500 }}
+                      className="text-link"
                       onClick={(e) => e.stopPropagation()}
                     >
                       {project.lead.name || project.lead.email}
@@ -158,16 +146,10 @@ export default function ProjectsPage() {
 
               {/* Requirements summary */}
               {project.requirements && (
-                <div style={{
-                  padding: "12px",
-                  background: "var(--bg-secondary)",
-                  borderRadius: "var(--radius)",
-                  marginBottom: "16px",
-                  fontSize: "13px",
-                }}>
-                  <strong>Type:</strong> {project.requirements.siteType}{" · "}
-                  <strong>Pages:</strong> {project.requirements.pages?.length ?? 0}{" · "}
-                  <strong>Features:</strong> {project.requirements.features?.length ?? 0}
+                <div className="info-strip" style={{ marginBottom: "16px" }}>
+                  <span><strong>Type:</strong> {project.requirements.siteType}</span>
+                  <span><strong>Pages:</strong> {project.requirements.pages?.length ?? 0}</span>
+                  <span><strong>Features:</strong> {project.requirements.features?.length ?? 0}</span>
                 </div>
               )}
 

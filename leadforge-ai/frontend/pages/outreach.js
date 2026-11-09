@@ -27,7 +27,7 @@ export default function OutreachQueuePage() {
     try {
       await api.approveOutreach(messageId);
       mutate();
-      showToast("Email sent successfully! 📧", "success");
+      showToast("Email sent successfully", "success");
     } catch (err) {
       showToast(`Failed to send: ${err.message}`, "error");
     } finally {
@@ -72,7 +72,7 @@ export default function OutreachQueuePage() {
       });
       mutate();
       closeEditModal();
-      showToast("Draft updated ✏️", "success");
+      showToast("Draft updated", "success");
     } catch (err) {
       showToast(`Failed to update: ${err.message}`, "error");
     } finally {
@@ -92,15 +92,8 @@ export default function OutreachQueuePage() {
             </p>
           </div>
           {pending && pending.length > 0 && (
-            <div style={{
-              padding: "8px 16px",
-              background: "var(--warning-50)",
-              border: "1px solid var(--warning-200)",
-              borderRadius: "var(--radius-full)",
-              fontSize: "14px",
-              fontWeight: 600,
-              color: "var(--warning)",
-            }}>
+            <div className="status-pill is-warning">
+              <span className="status-dot" style={{ background: "var(--warning-600)" }} aria-hidden="true" />
               {pending.length} pending approval{pending.length !== 1 ? "s" : ""}
             </div>
           )}
@@ -117,18 +110,8 @@ export default function OutreachQueuePage() {
 
       {/* Error */}
       {error && (
-        <div className="card" style={{
-          padding: "24px",
-          background: "var(--error-50)",
-          border: "1px solid var(--error-200)",
-          textAlign: "center",
-        }}>
-          <div style={{ fontSize: "16px", fontWeight: 600, marginBottom: "4px", color: "var(--error)" }}>
-            Failed to load outreach queue
-          </div>
-          <p style={{ color: "var(--text-secondary)", margin: 0 }}>
-            Check backend connection and try again
-          </p>
+        <div className="banner banner-error">
+          Failed to load the outreach queue — check the backend connection and try again.
         </div>
       )}
 
@@ -150,31 +133,21 @@ export default function OutreachQueuePage() {
       )}
 
       {/* Outreach cards */}
+      <div className="grid-stack">
       {pending?.map((msg) => (
-        <div key={msg.id} className="card" style={{ marginBottom: "24px" }}>
+        <div key={msg.id} className="card mb-0">
           {/* Lead header */}
           <div style={{
             display: "flex",
             justifyContent: "space-between",
             alignItems: "start",
+            gap: "16px",
             marginBottom: "20px",
             paddingBottom: "20px",
             borderBottom: "1px solid var(--border)",
           }}>
             <div style={{ display: "flex", gap: "16px", alignItems: "start" }}>
-              <div style={{
-                width: "48px",
-                height: "48px",
-                borderRadius: "50%",
-                background: "var(--primary-900)",
-                color: "var(--primary-300)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "20px",
-                fontWeight: 600,
-                flexShrink: 0,
-              }}>
+              <div className="avatar avatar-lg" aria-hidden="true">
                 {msg.conversation.lead.name?.[0]?.toUpperCase() ?? "L"}
               </div>
               <div>
@@ -193,47 +166,16 @@ export default function OutreachQueuePage() {
           </div>
 
           {/* Email preview */}
-          <div style={{
-            background: "var(--bg-secondary)",
-            padding: "20px",
-            borderRadius: "var(--radius)",
-            marginBottom: "20px",
-            border: "1px solid var(--border)",
-          }}>
-            <div style={{ marginBottom: "16px" }}>
-              <div style={{
-                fontSize: "12px",
-                fontWeight: 600,
-                color: "var(--text-tertiary)",
-                marginBottom: "6px",
-                textTransform: "uppercase",
-                letterSpacing: "0.5px",
-              }}>
-                Subject Line
-              </div>
-              <div style={{ fontSize: "16px", fontWeight: 600 }}>
-                {msg.conversation.subject}
-              </div>
-            </div>
-            <div>
-              <div style={{
-                fontSize: "12px",
-                fontWeight: 600,
-                color: "var(--text-tertiary)",
-                marginBottom: "6px",
-                textTransform: "uppercase",
-                letterSpacing: "0.5px",
-              }}>
-                Email Body
-              </div>
-              <div style={{ fontSize: "14px", lineHeight: "1.7", whiteSpace: "pre-wrap" }}>
-                {msg.content}
-              </div>
-            </div>
+          <div className="email-preview">
+            <div className="preview-label">Subject line</div>
+            <div className="preview-subject">{msg.conversation.subject}</div>
+
+            <div className="preview-label">Email body</div>
+            <div className="preview-body">{msg.content}</div>
           </div>
 
           {/* Action buttons */}
-          <div style={{ display: "flex", gap: "12px" }}>
+          <div className="action-row">
             <button
               className="btn btn-secondary"
               onClick={() => openEditModal(msg)}
@@ -262,10 +204,9 @@ export default function OutreachQueuePage() {
               )}
             </button>
             <button
-              className="btn btn-ghost"
+              className="btn btn-ghost btn-danger-ghost"
               onClick={() => handleReject(msg.id)}
               disabled={approving[msg.id] || rejecting[msg.id]}
-              style={{ color: "var(--error)" }}
             >
               {rejecting[msg.id] ? (
                 <><div className="spinner" style={{ width: "16px", height: "16px", borderWidth: "2px" }} /> Discarding…</>
@@ -276,6 +217,7 @@ export default function OutreachQueuePage() {
           </div>
         </div>
       ))}
+      </div>
 
       {/* Edit draft modal — uses the shared Modal component */}
       <Modal

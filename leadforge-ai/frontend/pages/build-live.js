@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { showToast } from "../components/Toast";
+import { streamBuildProgress } from "../lib/api";
 
 export default function LiveBuildPage() {
   const router = useRouter();
@@ -12,24 +13,13 @@ export default function LiveBuildPage() {
   const [generatedFiles, setGeneratedFiles] = useState([]);
   const [livePreview, setLivePreview] = useState("");
   const [cssCode, setCssCode] = useState("");
-  const eventSourceRef = useRef(null);
-
   useEffect(() => {
     if (!projectId) return;
 
-    // Connect to the SSE build progress stream.
-    // In production on Vercel, NEXT_PUBLIC_API_URL is unset so we use a
-    // relative path — but EventSource requires an absolute URL, so we
-    // fall back to window.location.origin when no base is configured.
-    const apiBase = process.env.NEXT_PUBLIC_API_URL || window.location.origin;
-    const eventSource = new EventSource(`${apiBase}/api/build/${projectId}/stream`);
-    eventSourceRef.current = eventSource;
-
-    eventSource.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      
+    const controller = new AbortController();
+    streamBuildProgress(projectId, (data) => {
       if (data.type === "connected") {
-        console.log("Connected to build stream");
+        setBuildStatus("building");
       } else if (data.type === "progress") {
         setBuildProgress(data.progress);
         setCurrentStep(data.message);
@@ -41,17 +31,15 @@ export default function LiveBuildPage() {
           showToast("Website build complete! 🎉", "success");
         }
       }
-    };
-
-    eventSource.onerror = (error) => {
-      console.error("SSE error:", error);
-      eventSource.close();
-    };
+    }, controller.signal).catch((error) => {
+      if (error.name !== "AbortError") {
+        setBuildStatus("error");
+        showToast(`Build progress unavailable: ${error.message}`, "error");
+      }
+    });
 
     return () => {
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-      }
+      controller.abort();
     };
   }, [projectId]);
 
@@ -60,8 +48,8 @@ export default function LiveBuildPage() {
     if (buildProgress >= 20 && buildProgress < 35) {
       // Show CSS being generated
       setCssCode(`:root {
-  --primary: #2563eb;
-  --secondary: #8b5cf6;
+  --primary: #FF7A00;
+  --secondary: #007ACC;
 }
 
 * {
@@ -195,7 +183,7 @@ body {
       </div>
 
       {/* Live Preview Split View */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
+      <div className="grid-2">
         {/* CSS Preview */}
         <div className="card">
           <div style={{
@@ -210,17 +198,18 @@ body {
               <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" />
             </svg>
             <h3 style={{ fontSize: "16px", fontWeight: 600, margin: 0 }}>
-              CSS Design System
+              CSS design system
             </h3>
             {buildProgress >= 20 && (
               <div style={{
                 marginLeft: "auto",
                 padding: "4px 8px",
                 background: "var(--success-100)",
-                color: "var(--success)",
+                color: "var(--success-700)",
                 borderRadius: "var(--radius-sm)",
                 fontSize: "11px",
-                fontWeight: 600,
+                fontWeight: 700,
+                letterSpacing: "0.06em",
               }}>
                 LIVE
               </div>
@@ -229,8 +218,8 @@ body {
           <div style={{ padding: "20px" }}>
             {cssCode ? (
               <pre style={{
-                background: "#1e293b",
-                color: "#e2e8f0",
+                background: "var(--surface-solid)",
+                color: "var(--text-primary)",
                 padding: "16px",
                 borderRadius: "var(--radius)",
                 fontSize: "13px",
@@ -247,7 +236,7 @@ body {
                 color: "var(--text-tertiary)",
               }}>
                 <div className="spinner" style={{ margin: "0 auto 16px" }} />
-                <p>Waiting for CSS generation...</p>
+                <p>Waiting for CSS generation…</p>
               </div>
             )}
           </div>
@@ -268,14 +257,14 @@ body {
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
             <h3 style={{ fontSize: "16px", fontWeight: 600, margin: 0 }}>
-              Live Preview
+              Live preview
             </h3>
             {buildProgress >= 50 && (
               <div style={{
                 marginLeft: "auto",
                 padding: "4px 8px",
-                background: "var(--success-100)",
-                color: "var(--success)",
+                background: "var(--success-50)",
+                color: "var(--success-700)",
                 borderRadius: "var(--radius-sm)",
                 fontSize: "11px",
                 fontWeight: 600,

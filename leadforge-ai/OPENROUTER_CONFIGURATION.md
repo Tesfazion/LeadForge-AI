@@ -1,6 +1,6 @@
 # 🔄 OpenRouter Configuration Guide
 
-**LeadForge AI is now configured to use OpenRouter instead of OpenAI directly**
+**LeadForge AI uses OpenRouter through workspace-specific BYOK or an optional server-managed fallback.**
 
 ---
 
@@ -21,13 +21,16 @@ OpenRouter is a unified API gateway that provides access to multiple AI models t
 ## ✅ Current Configuration
 
 ### API Key
-```
-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
-```
+
+Do not store API keys in this document, source files, or chat. Add a workspace
+key from **Settings → Bring your own OpenRouter key**. Workspace keys are
+encrypted at rest and are never returned by the settings API. See
+[BYOK_AND_BILLING.md](./BYOK_AND_BILLING.md) for encryption-key setup.
 
 ### Configuration Location
 ```
-File: backend/src/lib/openai.js
+Workspace settings: backend/src/routes/workspace.js
+AI client resolution: backend/src/lib/openai.js
 ```
 
 ### OpenRouter Settings
@@ -47,15 +50,8 @@ defaultHeaders: {
 The OpenAI SDK is configured to use OpenRouter's endpoint:
 
 ```javascript
-// backend/src/lib/openai.js
-export const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY, // OpenRouter key (sk-or-v1-...)
-  baseURL: "https://openrouter.ai/api/v1",
-  defaultHeaders: {
-    "HTTP-Referer": process.env.FRONTEND_URL,
-    "X-Title": "LeadForge AI",
-  },
-});
+// backend/src/lib/openai.js resolves the current workspace key per request.
+// OPENAI_API_KEY is an optional server-managed fallback.
 ```
 
 ### 2. Model Selection
@@ -264,8 +260,10 @@ async function callAIWithFallback(messages) {
 
 ### Current Configuration (.env)
 ```env
-# OpenRouter API Key
-OPENAI_API_KEY=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
+# Optional server-managed fallback; workspace BYOK is configured in Settings.
+OPENAI_API_KEY=
+AI_KEY_ENCRYPTION_KEY=
+OAUTH_STATE_SECRET=
 
 # Frontend URL (for OpenRouter headers)
 FRONTEND_URL=http://localhost:1101
@@ -286,10 +284,10 @@ X_TITLE=LeadForge AI Production
 
 ### API Key Protection
 ```
-✅ API key stored in .env file
-✅ .env file in .gitignore
-✅ Not exposed to frontend
-✅ Not committed to git
+✅ Workspace API keys are encrypted at rest with AES-256-GCM
+✅ Settings APIs never return stored key material
+✅ Workspace key takes precedence over the optional server fallback
+✅ Revoke and replace any key that was previously committed or shared
 ```
 
 ### Rate Limiting
@@ -401,7 +399,7 @@ npm run dev
 ### What You Have Now
 ```
 ✅ OpenRouter configured and working
-✅ API key: sk-or-v1-9a0a48d55dbc0d7d...da1b
+✅ API key: [REDACTED — rotate this key]...da1b
 ✅ Access to 50+ AI models
 ✅ One API key for all models
 ✅ Cost tracking and optimization

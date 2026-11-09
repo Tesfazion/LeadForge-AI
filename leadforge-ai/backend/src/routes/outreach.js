@@ -46,14 +46,10 @@ outreachRouter.post("/draft", async (req, res, next) => {
     const { subject, body } = await draftOutreachEmail(lead);
 
     const conversation = await prisma.conversation.create({
-      data: {
-        leadId: lead.id,
-        subject,
-        messages: {
-          create: { role: "AGENT", content: body, approved: false },
-        },
-      },
-      include: { messages: true },
+      data: { leadId: lead.id, subject },
+    });
+    const draft = await prisma.message.create({
+      data: { conversationId: conversation.id, role: "AGENT", content: body, approved: false },
     });
 
     await prisma.lead.update({
@@ -70,7 +66,7 @@ outreachRouter.post("/draft", async (req, res, next) => {
       metadata: { subject },
     });
 
-    res.status(201).json(conversation);
+    res.status(201).json({ ...conversation, messages: [draft] });
   } catch (err) {
     recordActivity({
       agent: "outreach",

@@ -176,7 +176,7 @@ export function getAllProviders() {
 /**
  * Generate authorization URL for a provider
  */
-export function generateAuthUrl(provider, userId, redirectUri) {
+export function generateAuthUrl(provider, userId, redirectUri, signedState) {
   const config = getProviderConfig(provider);
   
   // Use shared app if available
@@ -188,7 +188,7 @@ export function generateAuthUrl(provider, userId, redirectUri) {
     throw new Error(`No OAuth credentials configured for ${provider}. Please configure in settings.`);
   }
   
-  const state = Buffer.from(JSON.stringify({ provider, userId })).toString('base64');
+  const state = signedState || Buffer.from(JSON.stringify({ provider, userId })).toString('base64');
   
   const params = new URLSearchParams({
     client_id: clientId,

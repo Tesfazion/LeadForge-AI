@@ -13,6 +13,7 @@
 
 import { Router } from "express";
 import { prisma } from "../lib/prisma.js";
+import { currentWorkspaceId } from "../lib/workspaceContext.js";
 
 export const activitiesRouter = Router();
 
@@ -42,7 +43,7 @@ const MAX_ACTIVITIES = 100;
  * @param {object} [params.metadata={}]  - Any extra key/value pairs useful for debugging
  * @returns {object} The activity object that was stored
  */
-export function recordActivity({ agent, action, leadId, conversationId, projectId, status, metadata = {} }) {
+export function recordActivity({ agent, action, leadId, conversationId, projectId, status, metadata = {}, workspaceId = currentWorkspaceId() }) {
   const activity = {
     id:             `activity-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     agent,
@@ -50,6 +51,7 @@ export function recordActivity({ agent, action, leadId, conversationId, projectI
     leadId,
     conversationId,
     projectId,
+    workspaceId,
     status,
     metadata,
     timestamp:      new Date().toISOString(),
@@ -89,7 +91,7 @@ export function makeActivityRecorder(agent) {
 activitiesRouter.get("/", async (req, res, next) => {
   try {
     const limit = parseInt(req.query.limit) || 50;
-    res.json(recentActivities.slice(0, limit));
+    res.json(recentActivities.filter((activity) => activity.workspaceId === req.workspaceId).slice(0, limit));
   } catch (err) {
     next(err);
   }
@@ -153,7 +155,9 @@ activitiesRouter.get("/agent/:agentName/status", async (req, res, next) => {
     const { agentName } = req.params;
     
     // Find most recent activity for this agent
-    const recentActivity = recentActivities.find(a => a.agent === agentName);
+    const recentActivity = recentActivities.find(
+      (activity) => activity.workspaceId === req.workspaceId && activity.agent === agentName
+    );
     
     if (!recentActivity) {
       return res.json({ status: "idle", lastActivity: null });

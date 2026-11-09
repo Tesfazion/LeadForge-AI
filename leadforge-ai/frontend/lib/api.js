@@ -14,6 +14,11 @@
 // Empty string → relative paths (/api/leads) — correct for Vercel production.
 // Full URL      → absolute paths — correct for local dev with a separate server.
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
+let tokenProvider = null;
+
+export function setApiTokenProvider(provider) {
+  tokenProvider = provider;
+}
 
 // ---------------------------------------------------------------------------
 // Core request helper
@@ -31,9 +36,15 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
  * @returns {Promise<any>}  - Parsed JSON body, or null for 204 No Content
  */
 async function request(route, options = {}) {
+  const token = tokenProvider ? await tokenProvider() : null;
+  const headers = {
+    "Content-Type": "application/json",
+    ...options.headers,
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
   const res = await fetch(`${API_BASE}/api${route}`, {
-    headers: { "Content-Type": "application/json" },
     ...options,
+    headers,
   });
 
   if (!res.ok) {
@@ -42,6 +53,49 @@ async function request(route, options = {}) {
   }
 
   return res.status === 204 ? null : res.json();
+}
+
+export async function streamBuildProgress(projectId, onEvent, signal) {
+  const token = tokenProvider ? await tokenProvider() : null;
+  const res = await fetch(`${API_BASE}/api/build/${encodeURIComponent(projectId)}/stream`, {
+    headers: {
+      Accept: "text/event-stream",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    signal,
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Request failed: ${res.status}`);
+  }
+  if (!res.body) throw new Error("Build progress stream is unavailable");
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, "\n");
+      const events = buffer.split("\n\n");
+      buffer = events.pop() ?? "";
+
+      for (const event of events) {
+        const data = event.split("\n").find((line) => line.startsWith("data:"));
+        if (data) onEvent(JSON.parse(data.slice(5).trim()));
+      }
+    }
+
+    if (buffer.trim()) {
+      const data = buffer.split("\n").find((line) => line.startsWith("data:"));
+      if (data) onEvent(JSON.parse(data.slice(5).trim()));
+    }
+  } finally {
+    reader.releaseLock();
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -53,6 +107,14 @@ export const api = {
 
   /** Get all leads */
   getLeads: () => request("/leads"),
+
+  /** Get an aggregated, bounded payload for the workspace dashboard */
+  getDashboardSummary: (range = 30) =>
+    request(`/leads/summary?range=${encodeURIComponent(range)}`),
+
+  /** Search a small set of leads for the global command palette */
+  searchLeads: (query) =>
+    request(`/leads/search?q=${encodeURIComponent(query)}`),
 
   /** Get a single lead with conversations and projects */
   getLead: (id) => request(`/leads/${id}`),
@@ -151,49 +213,51 @@ export const api = {
   getOAuthProviders: () => request("/oauth/providers"),
 
   /** Get connection status for all platforms */
-  getConnectionStatus: (userId = "default-user") =>
-    request(`/oauth/status?userId=${userId}`),
+  getConnectionStatus: () => request("/oauth/status"),
 
   /**
    * Redirect the browser to the OAuth authorization page.
    * This is a full-page redirect, not a JSON request.
    */
-  connectPlatform: (platform, userId = "default-user") => {
-    window.location.href = `${API_BASE}/api/oauth/connect/${platform}?userId=${userId}`;
+  connectPlatform: async (platform) => {
+    const result = await request(`/oauth/connect/${platform}`, { method: "POST" });
+    window.location.assign(result.authorizationUrl);
   },
 
   /** Remove a platform connection */
-  disconnectPlatform: (platform, userId = "default-user") =>
+  disconnectPlatform: (platform) =>
     request(`/oauth/disconnect/${platform}`, {
       method: "POST",
-      body: JSON.stringify({ userId }),
     }),
 
   /** Get all connected accounts (safe, no tokens) */
-  getConnectedAccounts: (userId = "default-user") =>
-    request(`/oauth/accounts?userId=${userId}`),
+  getConnectedAccounts: () => request("/oauth/accounts"),
 
   /** Fetch data from a specific connected platform */
-  getPlatformData: (platform, userId = "default-user") =>
-    request(`/oauth/data/${platform}?userId=${userId}`),
+  getPlatformData: (platform) => request(`/oauth/data/${platform}`),
 
   /** Fetch data from all connected platforms */
-  getAllPlatformData: (userId = "default-user") =>
-    request(`/oauth/data?userId=${userId}`),
+  getAllPlatformData: () => request("/oauth/data"),
 
   /** Get an AI-generated summary of all platform data */
-  getAISummary: (userId = "default-user") =>
-    request(`/oauth/ai-summary?userId=${userId}`),
+  getAISummary: () => request("/oauth/ai-summary"),
 
   // --- Inbox ----------------------------------------------------------------
 
   /** Get emails, optionally filtered by status */
-  getEmails: (status, userId = "default-user") => {
+  getEmails: (status) => {
     const params = new URLSearchParams();
     if (status) params.set("status", status);
-    if (userId) params.set("userId", userId);
     return request(`/inbox/emails?${params.toString()}`);
   },
+  getInboxTasks: () => request("/inbox/tasks"),
+
+  // --- Workspace settings --------------------------------------------------
+
+  getWorkspaceSettings: () => request("/workspace/settings"),
+  saveWorkspaceAIKey: (apiKey) =>
+    request("/workspace/ai-key", { method: "PUT", body: JSON.stringify({ apiKey }) }),
+  removeWorkspaceAIKey: () => request("/workspace/ai-key", { method: "DELETE" }),
 
   /** Get AI-generated tasks for a specific email */
   getEmailTasks: (emailId) => request(`/inbox/emails/${emailId}/tasks`),

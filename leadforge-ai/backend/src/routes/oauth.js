@@ -19,11 +19,9 @@ import {
 import * as platformDataModule from "../lib/platformData.js";
 const { fetchAllPlatformData, getAISummary } = platformDataModule;
 import { recordActivity } from "./activities.js";
+import { createOAuthState, verifyOAuthState } from "../lib/oauthState.js";
 
 export const oauthRouter = Router();
-
-// Default user ID (in production, use authenticated user)
-const DEFAULT_USER_ID = "default-user";
 
 /**
  * GET /oauth/providers
@@ -70,26 +68,27 @@ oauthRouter.get("/config", (req, res) => {
  * Get connection status for all platforms
  */
 oauthRouter.get("/status", (req, res) => {
-  const userId = req.query.userId || DEFAULT_USER_ID;
+  const userId = req.workspaceId;
   const status = getConnectionStatus(userId);
   res.json(status);
 });
 
 /**
- * GET /oauth/connect/:platform
+ * POST /oauth/connect/:platform
  * Initiate OAuth flow for a platform (uses shared app if available)
  */
-oauthRouter.get("/connect/:platform", (req, res) => {
+oauthRouter.post("/connect/:platform", (req, res, next) => {
   const { platform } = req.params;
-  const userId = req.query.userId || DEFAULT_USER_ID;
+  const userId = req.workspaceId;
 
   try {
     const redirectUri = `${process.env.BACKEND_URL || "http://localhost:1100"}/oauth/callback/${platform}`;
+    const state = createOAuthState(userId, platform);
     
     // Check if platform has shared OAuth app configured
     if (hasSharedApp(platform)) {
       // Use LeadForge's shared OAuth app - no manual setup required!
-      const authUrl = generateAuthUrl(platform, userId, redirectUri);
+      const authUrl = generateAuthUrl(platform, userId, redirectUri, state);
       
       recordActivity({
         agent: "oauth",
@@ -98,7 +97,7 @@ oauthRouter.get("/connect/:platform", (req, res) => {
         metadata: { platform, userId, method: "shared_app" },
       });
       
-      return res.redirect(authUrl);
+      return res.json({ authorizationUrl: authUrl });
     }
     
     // Fall back to manual OAuth configuration
@@ -111,7 +110,7 @@ oauthRouter.get("/connect/:platform", (req, res) => {
       });
     }
 
-    const authUrl = getAuthUrl(platform, userId);
+    const authUrl = getAuthUrl(platform, userId, state);
     
     recordActivity({
       agent: "oauth",
@@ -120,8 +119,9 @@ oauthRouter.get("/connect/:platform", (req, res) => {
       metadata: { platform, userId, method: "manual_config" },
     });
 
-    res.redirect(authUrl);
+    res.json({ authorizationUrl: authUrl });
   } catch (error) {
+    if (error.status) return next(error);
     res.status(400).json({ error: error.message });
   }
 });
@@ -135,12 +135,11 @@ oauthRouter.get("/callback/:platform", async (req, res) => {
   const { code, state, error } = req.query;
 
   if (error) {
-    return res.redirect(`${process.env.FRONTEND_URL || "http://localhost:1101"}/integrations?error=${error}`);
+    return res.redirect(`${process.env.FRONTEND_URL || "http://localhost:1101"}/integrations?error=${encodeURIComponent(error)}`);
   }
 
   try {
-    // Decode state to get userId
-    const { userId } = JSON.parse(Buffer.from(state, "base64").toString());
+    const { workspaceId: userId } = verifyOAuthState(state, platform);
 
     const redirectUri = `${process.env.BACKEND_URL || "http://localhost:1100"}/oauth/callback/${platform}`;
     
@@ -162,6 +161,7 @@ oauthRouter.get("/callback/:platform", async (req, res) => {
       agent: "oauth",
       action: "connect_completed",
       status: "completed",
+      workspaceId: userId,
       metadata: { platform, userId, profile: profileData, method: hasSharedApp(platform) ? "shared_app" : "manual_config" },
     });
 
@@ -179,7 +179,7 @@ oauthRouter.get("/callback/:platform", async (req, res) => {
  */
 oauthRouter.post("/disconnect/:platform", (req, res) => {
   const { platform } = req.params;
-  const userId = req.body.userId || DEFAULT_USER_ID;
+  const userId = req.workspaceId;
 
   const success = disconnectAccount(userId, platform);
 
@@ -198,7 +198,7 @@ oauthRouter.post("/disconnect/:platform", (req, res) => {
  * Get all connected accounts
  */
 oauthRouter.get("/accounts", (req, res) => {
-  const userId = req.query.userId || DEFAULT_USER_ID;
+  const userId = req.workspaceId;
   const accounts = getAllConnectedAccounts(userId);
 
   // Remove sensitive data
@@ -218,7 +218,7 @@ oauthRouter.get("/accounts", (req, res) => {
  */
 oauthRouter.get("/data/:platform", async (req, res, next) => {
   const { platform } = req.params;
-  const userId = req.query.userId || DEFAULT_USER_ID;
+  const userId = req.workspaceId;
 
   // Dynamically select the per-platform fetcher from the already-imported module
   const fetcherName = `fetch${capitalize(platform)}Data`;
@@ -241,7 +241,7 @@ oauthRouter.get("/data/:platform", async (req, res, next) => {
  * Fetch data from all connected platforms
  */
 oauthRouter.get("/data", async (req, res, next) => {
-  const userId = req.query.userId || DEFAULT_USER_ID;
+  const userId = req.workspaceId;
 
   try {
     const data = await fetchAllPlatformData(userId);
@@ -256,7 +256,7 @@ oauthRouter.get("/data", async (req, res, next) => {
  * Get AI-friendly summary of all platform data
  */
 oauthRouter.get("/ai-summary", async (req, res, next) => {
-  const userId = req.query.userId || DEFAULT_USER_ID;
+  const userId = req.workspaceId;
 
   try {
     const summary = await getAISummary(userId);

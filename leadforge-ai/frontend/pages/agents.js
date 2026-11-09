@@ -70,7 +70,7 @@ export default function AgentsPage() {
           <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
         </svg>
       ),
-      color: "#0ea5e9",
+      color: "#FF7A00",
       workflow: [
         "Analyzes lead profile",
         "Researches company context",
@@ -93,7 +93,7 @@ export default function AgentsPage() {
           <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
         </svg>
       ),
-      color: "#8b5cf6",
+      color: "#007ACC",
       workflow: [
         "Reads full conversation history",
         "Understands context",
@@ -188,19 +188,23 @@ export default function AgentsPage() {
       </div>
 
       {/* Pipeline Flow Visualization */}
-      <div className="card" style={{ marginBottom: "32px", background: "linear-gradient(135deg, var(--primary-50), var(--bg-primary))" }}>
-        <div style={{ padding: "24px" }}>
-          <h3 style={{ fontSize: "16px", fontWeight: 600, marginBottom: "16px" }}>
-            Automation Pipeline
-          </h3>
+      <div className="card mb-32" style={{ background: "var(--bg-cream)" }}>
+        <div>
+          <div className="card-header">
+            <div>
+              <div className="card-title">Automation pipeline</div>
+              <div className="card-subtitle">How a lead moves through the agent chain</div>
+            </div>
+          </div>
           
-          <div style={{ display: "flex", alignItems: "center", gap: "16px", overflowX: "auto" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "16px", overflowX: "auto", paddingBottom: "4px" }}>
             {agents.map((agent, index) => (
               <div key={agent.id} style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
                 <div style={{
                   padding: "16px",
-                  background: "white",
-                  border: `2px solid ${agent.color}`,
+                  background: "var(--surface)",
+                  color: "var(--text-primary)",
+                  border: `1px solid ${agent.color}40`,
                   borderRadius: "var(--radius-lg)",
                   minWidth: "160px",
                   textAlign: "center",
@@ -249,7 +253,7 @@ export default function AgentsPage() {
       </div>
 
       {/* Agent Cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(500px, 1fr))", gap: "24px" }}>
+      <div className="grid-2">
         {agents.map((agent) => (
           <div key={agent.id} className="card">
             {/* Agent Header */}
@@ -311,7 +315,7 @@ export default function AgentsPage() {
             {/* Workflow */}
             <div style={{ marginBottom: "20px" }}>
               <div style={{ fontSize: "13px", fontWeight: 600, marginBottom: "12px", color: "var(--text-secondary)" }}>
-                Workflow:
+                Workflow
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                 {agent.workflow.map((step, index) => (
@@ -366,7 +370,7 @@ export default function AgentsPage() {
             {/* Triggers */}
             <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: "1px solid var(--border)" }}>
               <div style={{ fontSize: "12px", color: "var(--text-tertiary)", marginBottom: "8px" }}>
-                Triggered by:
+                Triggered by
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
                 {agent.triggers.map((trigger) => (
@@ -390,12 +394,13 @@ export default function AgentsPage() {
       </div>
 
       {/* Activity Feed */}
-      <div className="card" style={{ marginTop: "32px" }}>
+      <div className="card" style={{ marginTop: "32px", marginBottom: 0 }}>
         <div className="card-header">
-          <div className="card-title">Recent Activity</div>
-          <div style={{ fontSize: "12px", color: "var(--text-tertiary)" }}>
-            Updates every 3 seconds
+          <div>
+            <div className="card-title">Recent activity</div>
+            <div className="card-subtitle">Live from every agent</div>
           </div>
+          <span className="badge badge-gray">Refreshes every 3s</span>
         </div>
         
         {!activities || activities.length === 0 ? (
@@ -424,18 +429,13 @@ export default function AgentsPage() {
               return (
                 <div 
                   key={activity.id}
-                  style={{
-                    padding: "16px",
-                    borderBottom: "1px solid var(--border)",
-                    display: "flex",
-                    gap: "12px",
-                  }}
+                  className="activity-row"
                 >
                   <div style={{
-                    width: "40px",
-                    height: "40px",
-                    borderRadius: "50%",
-                    background: `${agent?.color}20`,
+                    width: "36px",
+                    height: "36px",
+                    borderRadius: "var(--radius)",
+                    background: `${agent?.color}14`,
                     color: agent?.color,
                     display: "flex",
                     alignItems: "center",

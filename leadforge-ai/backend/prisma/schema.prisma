@@ -38,32 +38,43 @@ enum ProjectStatus {
 }
 
 model Lead {
-  id            String        @id @default(cuid())
-  name          String?
-  email         String        @unique
-  company       String?
-  source        String? // e.g. "apollo", "manual", "website form"
-  status        LeadStatus    @default(NEW)
-  notes         String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  id          String     @id @default(cuid())
+  workspaceId String?
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name        String?
+  email       String
+  company     String?
+  source      String? // e.g. "apollo", "manual", "website form"
+  status      LeadStatus @default(NEW)
+  notes       String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 
   conversations Conversation[]
   projects      Project[]
+
+  @@unique([workspaceId, email])
+  @@index([workspaceId, createdAt])
 }
 
 model Conversation {
-  id         String    @id @default(cuid())
-  leadId     String
-  lead       Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  subject    String?
-  messages   Message[]
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  id          String     @id @default(cuid())
+  workspaceId String?
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  leadId      String
+  lead        Lead       @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  subject     String?
+  messages    Message[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([workspaceId, createdAt])
 }
 
 model Message {
   id             String       @id @default(cuid())
+  workspaceId    String?
+  workspace      Workspace?   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   conversationId String
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   role           MessageRole
@@ -72,19 +83,39 @@ model Message {
   approved       Boolean      @default(false)
   sentAt         DateTime?
   createdAt      DateTime     @default(now())
+
+  @@index([workspaceId, createdAt])
 }
 
 model Project {
-  id            String        @id @default(cuid())
-  leadId        String
-  lead          Lead          @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  name          String
+  id           String        @id @default(cuid())
+  workspaceId  String?
+  workspace    Workspace?    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  leadId       String
+  lead         Lead          @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  name         String
   // Structured requirements produced by the Requirements Analyst Agent
-  requirements  Json?
-  status        ProjectStatus @default(GATHERING_REQUIREMENTS)
-  repoUrl       String?
-  deployUrl     String?
-  buildLog      String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  requirements Json?
+  status       ProjectStatus @default(GATHERING_REQUIREMENTS)
+  repoUrl      String?
+  deployUrl    String?
+  buildLog     String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([workspaceId, createdAt])
+}
+
+model Workspace {
+  id              String         @id @default(cuid())
+  authUserId      String         @unique
+  aiKeyCiphertext String?
+  aiKeyNonce      String?
+  aiKeyAuthTag    String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  leads           Lead[]
+  conversations   Conversation[]
+  messages        Message[]
+  projects        Project[]
 }

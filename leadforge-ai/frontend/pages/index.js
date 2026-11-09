@@ -1,270 +1,333 @@
-import useSWR from "swr";
-import { useState } from "react";
+/**
+ * LeadForge AI — Public marketing landing page
+ *
+ * An official Sunshine Tech Solution product page (same family as
+ * sunshinetechsolution.vercel.app and ideaforge-ai-omega.vercel.app):
+ *   - Bright corporate hero with orange CTA pair
+ *   - Trust stats row
+ *   - Feature grid (what the platform does)
+ *   - How it works (numbered steps)
+ *   - Final CTA + professional dark footer
+ *
+ * The logged-in product (dashboard shell) starts at /dashboard.
+ */
+
 import Link from "next/link";
-import { api } from "../lib/api";
-import { showToast } from "../components/Toast";
-import { getStatusBadgeClass, formatStatus } from "../lib/utils";
 
-export default function LeadsPage() {
-  const { data: leads, error, isLoading, mutate } = useSWR("leads", api.getLeads);
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", company: "", source: "" });
-  const [submitting, setSubmitting] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("ALL");
+const FEATURES = [
+  {
+    tag: "DISCOVERY",
+    title: "AI Lead Discovery",
+    text: "Find high-intent prospects automatically — Apollo, Hunter and web signals combined into one qualified pipeline.",
+  },
+  {
+    tag: "OUTREACH",
+    title: "Automated Outreach",
+    text: "Personalized email sequences written by AI, sent on schedule, with replies routed straight to your inbox.",
+  },
+  {
+    tag: "AGENTS",
+    title: "Autonomous Agents",
+    text: "Research, engage, qualify and hand over — agents work your pipeline around the clock so you don't have to.",
+  },
+  {
+    tag: "CONVERSATIONS",
+    title: "Unified Conversations",
+    text: "Every reply, thread and touchpoint in one professional inbox built for fast, organized follow-up.",
+  },
+  {
+    tag: "ANALYTICS",
+    title: "Pipeline Analytics",
+    text: "Conversion rates, reply rates and source performance — clear reporting your team can act on.",
+  },
+  {
+    tag: "DEPLOYMENT",
+    title: "Lead-to-Website Builds",
+    text: "Turn a signed lead into a live, branded website automatically — the final step of the funnel, automated.",
+  },
+];
 
-  async function handleAddLead(e) {
-    e.preventDefault();
-    setSubmitting(true);
-    try {
-      await api.createLead(form);
-      setForm({ name: "", email: "", company: "", source: "" });
-      setShowForm(false);
-      mutate();
-    } catch (err) {
-      showToast(err.message, "error");
-    } finally {
-      setSubmitting(false);
-    }
-  }
+const STEPS = [
+  {
+    step: "STEP 01",
+    label: "~2 minutes",
+    title: "Connect your sources",
+    text: "Link your lead sources and tools. LeadForge starts discovering and organizing prospects immediately.",
+  },
+  {
+    step: "STEP 02",
+    label: "~30 seconds per lead",
+    title: "AI qualifies every lead",
+    text: "Each prospect is scored and enriched so your team focuses only on leads worth pursuing.",
+  },
+  {
+    step: "STEP 03",
+    label: "On your schedule",
+    title: "Outreach goes out",
+    text: "Personalized sequences are drafted and sent automatically, with every reply routed to your inbox.",
+  },
+  {
+    step: "STEP 04",
+    label: "Continuous",
+    title: "Close and deliver",
+    text: "Track deals to the finish line — then let the platform deploy the client's website automatically.",
+  },
+];
 
-  const filteredLeads = leads?.filter(lead => {
-    const matchesSearch = searchQuery === "" || 
-      lead.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lead.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lead.company?.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesStatus = statusFilter === "ALL" || lead.status === statusFilter;
-    
-    return matchesSearch && matchesStatus;
-  });
+const STATS = [
+  { value: "10k+", label: "Leads processed" },
+  { value: "94%", label: "Outreach deliverability" },
+  { value: "24/7", label: "Agent coverage" },
+  { value: "4 min", label: "Avg. lead-to-site build" },
+];
 
-  // getStatusBadgeClass and formatStatus are imported from lib/utils
-
+export default function LandingPage() {
   return (
-    <>
-      <div className="page-header">
-        <div className="page-header-row">
-          <div>
-            <h1 className="page-title">Leads</h1>
-            <p className="page-description">
-              Manage and track all your prospects in one place
-            </p>
-          </div>
-          <div className="page-actions">
-            <Link href="/discover" className="btn btn-secondary">
-              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-              </svg>
-              Discover Leads
-            </Link>
-            <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
-              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-              </svg>
-              Add Lead
-            </button>
-          </div>
+    <div className="landing">
+      {/* ── Parent-company ribbon ─────────────────────────────────────── */}
+      <div className="landing-ribbon">
+        <div className="landing-container landing-ribbon-inner">
+          <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+            <span className="ribbon-dot" aria-hidden="true" />
+            A <strong>Sunshine Tech Solution</strong> product
+          </span>
+          <a href="https://sunshinetechsolution.vercel.app/" target="_blank" rel="noopener noreferrer">
+            sunshinetechsolution.vercel.app
+            <span aria-hidden="true">↗</span>
+          </a>
         </div>
       </div>
 
-      {/* Add Lead Modal */}
-      {showForm && (
-        <div className="card fade-in" style={{ marginBottom: "24px" }}>
-          <div className="card-header">
-            <div className="card-title">Add New Lead</div>
-            <button className="btn btn-sm btn-ghost" onClick={() => setShowForm(false)}>
-              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-
-          <form onSubmit={handleAddLead} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
-            <div className="form-group">
-              <label className="form-label">Full Name</label>
-              <input
-                className="form-input"
-                placeholder="John Doe"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Email Address *</label>
-              <input
-                className="form-input"
-                type="email"
-                placeholder="john@company.com"
-                required
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Company</label>
-              <input
-                className="form-input"
-                placeholder="Acme Inc."
-                value={form.company}
-                onChange={(e) => setForm({ ...form, company: e.target.value })}
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Source</label>
-              <input
-                className="form-input"
-                placeholder="LinkedIn, Website, Referral"
-                value={form.source}
-                onChange={(e) => setForm({ ...form, source: e.target.value })}
-              />
-            </div>
-
-            <div style={{ gridColumn: "1 / -1", display: "flex", gap: "12px", justifyContent: "flex-end" }}>
-              <button type="button" className="btn btn-secondary" onClick={() => setShowForm(false)}>
-                Cancel
-              </button>
-              <button type="submit" className="btn btn-primary" disabled={submitting}>
-                {submitting ? "Adding..." : "Add Lead"}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* Filters */}
-      <div className="card" style={{ marginBottom: "24px" }}>
-        <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
-          <div style={{ flex: 1 }}>
-            <input
-              type="text"
-              className="form-input"
-              placeholder="Search by name, email, or company..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+      {/* ── Navigation bar ─────────────────────────────────────────────── */}
+      <header className="landing-nav">
+        <div className="landing-container landing-nav-inner">
+          <Link href="/" className="landing-logo" aria-label="LeadForge AI home">
+            <img
+              src="/LeadForge AI Agent logo.png"
+              alt="LeadForge AI logo"
+              className="landing-logo-img"
             />
+            <span>
+              LeadForge <span className="landing-logo-sub">AI</span>
+            </span>
+          </Link>
+
+          <nav className="landing-links" aria-label="Main navigation">
+            <a href="#features">Features</a>
+            <a href="#how-it-works">How it works</a>
+            <a href="#stats">Why LeadForge</a>
+          </nav>
+
+          <div className="landing-nav-actions">
+            <Link href="/dashboard" className="btn btn-ghost btn-sm">
+              Sign in
+            </Link>
+            <Link href="/dashboard" className="btn btn-primary btn-sm">
+              Open dashboard
+            </Link>
           </div>
-
-          <select
-            className="form-select"
-            style={{ width: "200px" }}
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
-            <option value="ALL">All Statuses</option>
-            <option value="NEW">New</option>
-            <option value="OUTREACH_SENT">Outreach Sent</option>
-            <option value="REPLIED">Replied</option>
-            <option value="QUALIFIED">Qualified</option>
-            <option value="DISQUALIFIED">Disqualified</option>
-          </select>
-
-          <button className="btn btn-secondary btn-sm">
-            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" />
-            </svg>
-            Filters
-          </button>
         </div>
-      </div>
+      </header>
 
-      {/* Loading */}
-      {isLoading && (
-        <div style={{ display: "flex", justifyContent: "center", padding: "64px" }}>
-          <div className="spinner"></div>
-        </div>
-      )}
-
-      {/* Error */}
-      {error && (
-        <div className="card" style={{ background: "var(--error)", color: "white", textAlign: "center" }}>
-          Failed to load leads. Check your connection.
-        </div>
-      )}
-
-      {/* Empty State */}
-      {!isLoading && filteredLeads?.length === 0 && (
-        <div className="empty-state">
-          <div className="empty-state-icon">
-            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
-            </svg>
-          </div>
-          <h3 className="empty-state-title">
-            {searchQuery || statusFilter !== "ALL" ? "No leads found" : "No leads yet"}
-          </h3>
-          <p className="empty-state-description">
-            {searchQuery || statusFilter !== "ALL" 
-              ? "Try adjusting your search or filters" 
-              : "Get started by adding a lead or discovering new prospects"}
+      {/* ── Hero ───────────────────────────────────────────────────────── */}
+      <section className="landing-hero">
+        <div className="landing-container">
+          <span className="landing-eyebrow">SUNSHINE TECH SOLUTION</span>
+          <h1 className="landing-hero-title">
+            Turn leads into <span className="text-gradient-brand">revenue</span> —
+            automatically.
+          </h1>
+          <p className="landing-hero-text">
+            LeadForge AI discovers, qualifies and engages your prospects end-to-end —
+            from first touch to a live website — while your team focuses on closing.
           </p>
-          {!searchQuery && statusFilter === "ALL" && (
-            <div style={{ marginTop: "24px", display: "flex", gap: "12px", justifyContent: "center" }}>
-              <button className="btn btn-primary" onClick={() => setShowForm(true)}>Add Lead</button>
-              <Link href="/discover" className="btn btn-secondary">Discover Leads</Link>
+          <div className="landing-hero-actions">
+            <Link href="/dashboard" className="btn btn-primary btn-lg">
+              Open dashboard
+            </Link>
+            <a href="#how-it-works" className="btn btn-secondary btn-lg">
+              See how it works
+            </a>
+          </div>
+          <p className="landing-hero-note">
+            Built for teams that sell. No credit card required.
+          </p>
+
+          {/* Product preview card */}
+          <div className="landing-preview">
+            <div className="landing-preview-bar">
+              <span className="landing-preview-dot"></span>
+              <span className="landing-preview-dot"></span>
+              <span className="landing-preview-dot"></span>
+              <span className="landing-preview-title">LeadForge AI — Dashboard</span>
             </div>
-          )}
+            <div className="landing-preview-body">
+              <div className="landing-preview-side">
+                <span className="active">Dashboard</span>
+                <span>Leads</span>
+                <span>Discover</span>
+                <span>Agents</span>
+                <span>Inbox</span>
+                <span>Analytics</span>
+              </div>
+              <div className="landing-preview-main">
+                <div className="landing-preview-stats">
+                  <div className="landing-preview-stat">
+                    <small>Total leads</small>
+                    <strong>1,248</strong>
+                  </div>
+                  <div className="landing-preview-stat">
+                    <small>Qualified</small>
+                    <strong>312</strong>
+                  </div>
+                  <div className="landing-preview-stat">
+                    <small>Replied</small>
+                    <strong>97</strong>
+                  </div>
+                  <div className="landing-preview-stat">
+                    <small>Sites built</small>
+                    <strong>28</strong>
+                  </div>
+                </div>
+                <div className="landing-preview-rows">
+                  <div className="landing-preview-row">
+                    <span className="badge badge-primary">Qualified</span>
+                    <span>Addis Fashion House — outreach sent</span>
+                  </div>
+                  <div className="landing-preview-row">
+                    <span className="badge badge-success">Replied</span>
+                    <span>Haile Health Center — meeting booked</span>
+                  </div>
+                  <div className="landing-preview-row">
+                    <span className="badge badge-gray">New</span>
+                    <span>Ethiopian Diaspora Group — enriching</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-      )}
+      </section>
 
-      {/* Leads Table */}
-      {filteredLeads && filteredLeads.length > 0 && (
-        <div className="table-container fade-in">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Contact</th>
-                <th>Company</th>
-                <th>Source</th>
-                <th>Status</th>
-                <th>Added</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredLeads.map((lead) => (
-                <tr key={lead.id}>
-                  <td>
-                    <div style={{ fontWeight: 500 }}>{lead.name || lead.email}</div>
-                    <div style={{ fontSize: "13px", color: "var(--text-tertiary)", marginTop: "2px" }}>
-                      {lead.email}
-                    </div>
-                  </td>
-                  <td>{lead.company || "—"}</td>
-                  <td style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
-                    {lead.source || "—"}
-                  </td>
-                  <td>
-                    <span className={`badge ${getStatusBadgeClass(lead.status)}`}>
-                      {formatStatus(lead.status)}
-                    </span>
-                  </td>
-                  <td style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
-                    {new Date(lead.createdAt).toLocaleDateString()}
-                  </td>
-                  <td>
-                    <Link href={`/leads/${lead.id}`} className="btn btn-sm btn-ghost">
-                      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-                      </svg>
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* ── Stats ──────────────────────────────────────────────────────── */}
+      <section className="landing-stats" id="stats">
+        <div className="landing-container landing-stats-grid">
+          {STATS.map((s) => (
+            <div key={s.label} className="landing-stat">
+              <strong>{s.value}</strong>
+              <span>{s.label}</span>
+            </div>
+          ))}
         </div>
-      )}
+      </section>
 
-      {/* Results count */}
-      {filteredLeads && filteredLeads.length > 0 && (
-        <div style={{ marginTop: "16px", textAlign: "center", fontSize: "13px", color: "var(--text-secondary)" }}>
-          Showing {filteredLeads.length} of {leads.length} leads
+      {/* ── Features ───────────────────────────────────────────────────── */}
+      <section className="landing-section" id="features">
+        <div className="landing-container">
+          <span className="landing-eyebrow">WHAT WE DO</span>
+          <h2 className="landing-section-title">Everything your pipeline needs</h2>
+          <p className="landing-section-text">
+            One platform for discovery, engagement and delivery — designed, built and
+            secured by Sunshine Tech Solution.
+          </p>
+
+          <div className="landing-feature-grid">
+            {FEATURES.map((f) => (
+              <article key={f.title} className="landing-feature card">
+                <span className="landing-feature-tag">{f.tag}</span>
+                <h3>{f.title}</h3>
+                <p>{f.text}</p>
+              </article>
+            ))}
+          </div>
         </div>
-      )}
-    </>
+      </section>
+
+      {/* ── How it works ───────────────────────────────────────────────── */}
+      <section className="landing-section landing-section-alt" id="how-it-works">
+        <div className="landing-container">
+          <span className="landing-eyebrow">HOW IT WORKS</span>
+          <h2 className="landing-section-title">From prospect to live website</h2>
+          <p className="landing-section-text">
+            Four clear steps — the same workflow your team sees inside the dashboard.
+          </p>
+
+          <div className="landing-steps-grid">
+            {STEPS.map((s, i) => (
+              <article key={s.title} className="landing-step">
+                <div className="landing-step-num">{String(i + 1).padStart(2, "0")}</div>
+                <div>
+                  <div className="landing-step-meta">
+                    {s.step} · {s.label}
+                  </div>
+                  <h3>{s.title}</h3>
+                  <p>{s.text}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Final CTA ──────────────────────────────────────────────────── */}
+      <section className="landing-section">
+        <div className="landing-container">
+          <div className="landing-cta">
+            <h2>Ready to build something great?</h2>
+            <p>
+              Open your dashboard and put LeadForge AI to work on your pipeline today.
+            </p>
+            <div className="landing-hero-actions" style={{ justifyContent: "center" }}>
+              <Link href="/dashboard" className="btn btn-primary btn-lg">
+                Open dashboard
+              </Link>
+              <Link href="https://sunshinetechsolution.vercel.app/" className="btn btn-secondary btn-lg">
+                Visit Sunshine Tech Solution
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Footer ─────────────────────────────────────────────────────── */}
+      <footer className="landing-footer">
+        <div className="landing-container">
+          <div className="landing-footer-top">
+            <div>
+              <div className="landing-logo landing-footer-logo">
+                <img
+                  src="/LeadForge AI Agent logo.png"
+                  alt=""
+                  className="landing-logo-img"
+                />
+                <span>LeadForge AI</span>
+              </div>
+              <p className="landing-footer-tagline">
+                Automated lead-to-deployment platform — an official product of
+                Sunshine Tech Solution.
+              </p>
+            </div>
+            <div className="landing-footer-cols">
+              <div>
+                <h4>PRODUCT</h4>
+                <Link href="/dashboard">Dashboard</Link>
+                <Link href="/leads">Leads</Link>
+                <Link href="/agents">Agents</Link>
+                <Link href="/analytics">Analytics</Link>
+              </div>
+              <div>
+                <h4>SUNSHINE TECH</h4>
+                <a href="https://sunshinetechsolution.vercel.app/">Website</a>
+                <a href="https://sunshinetechsolution.vercel.app/#services">Services</a>
+                <a href="https://sunshinetechsolution.vercel.app/#contact">Contact</a>
+              </div>
+            </div>
+          </div>
+          <div className="landing-footer-bottom">
+            © 2026 Sunshine Tech Solution. LeadForge is a Sunshine Tech Solution product.
+          </div>
+        </div>
+      </footer>
+    </div>
   );
 }

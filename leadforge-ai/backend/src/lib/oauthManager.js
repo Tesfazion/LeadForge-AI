@@ -97,7 +97,7 @@ export const oauthConfig = {
 /**
  * Generate OAuth authorization URL
  */
-export function getAuthUrl(platform, userId) {
+export function getAuthUrl(platform, userId, state) {
   const config = oauthConfig[platform];
   if (!config) throw new Error(`Unknown platform: ${platform}`);
 
@@ -109,7 +109,7 @@ export function getAuthUrl(platform, userId) {
     redirect_uri: redirectUri,
     response_type: "code",
     scope: config.scopes.join(" "),
-    state: Buffer.from(JSON.stringify({ userId, platform })).toString("base64"),
+    state: state || Buffer.from(JSON.stringify({ userId, platform })).toString("base64"),
   });
 
   return `${config.authUrl}?${params.toString()}`;

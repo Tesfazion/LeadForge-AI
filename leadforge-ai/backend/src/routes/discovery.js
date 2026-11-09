@@ -47,7 +47,7 @@ discoveryRouter.post("/search", async (req, res, next) => {
       for (const lead of leads) {
         try {
           // Check if email already exists
-          const existing = await prisma.lead.findUnique({
+          const existing = await prisma.lead.findFirst({
             where: { email: lead.email },
           });
 

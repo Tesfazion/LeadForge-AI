@@ -51,7 +51,7 @@ export default function DiscoverPage() {
 
       if (form.autoAdd) {
         // Give the user a moment to see the results before redirecting
-        setTimeout(() => router.push("/"), 3000);
+        setTimeout(() => router.push("/leads"), 3000);
       }
     } catch (err) {
       showToast(`Discovery failed: ${err.message}`, "error");
@@ -73,19 +73,23 @@ export default function DiscoverPage() {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "400px 1fr", gap: "24px" }}>
+      <div className="grid-form">
         {/* ---------------------------------------------------------------- */}
         {/* Search criteria form                                              */}
         {/* ---------------------------------------------------------------- */}
         <div className="card">
           <div className="card-header">
-            <div className="card-title">Search Criteria</div>
+            <div>
+              <div className="card-title">Search criteria</div>
+              <div className="card-subtitle">Tell the agent who to look for</div>
+            </div>
           </div>
 
           <form onSubmit={handleDiscover}>
             <div className="form-group">
-              <label className="form-label">Industry</label>
+              <label className="form-label" htmlFor="discover-industry">Industry</label>
               <select
+                id="discover-industry"
                 className="form-select"
                 value={form.industry}
                 onChange={(e) => setForm({ ...form, industry: e.target.value })}
@@ -97,8 +101,9 @@ export default function DiscoverPage() {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Location</label>
+              <label className="form-label" htmlFor="discover-location">Location</label>
               <input
+                id="discover-location"
                 className="form-input"
                 placeholder="United States, Europe, etc."
                 value={form.location}
@@ -107,8 +112,9 @@ export default function DiscoverPage() {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Company Size</label>
+              <label className="form-label" htmlFor="discover-size">Company size</label>
               <select
+                id="discover-size"
                 className="form-select"
                 value={form.companySize}
                 onChange={(e) => setForm({ ...form, companySize: e.target.value })}
@@ -120,8 +126,9 @@ export default function DiscoverPage() {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Number of Leads</label>
+              <label className="form-label" htmlFor="discover-count">Number of leads</label>
               <input
+                id="discover-count"
                 className="form-input"
                 type="number"
                 min={1}
@@ -129,22 +136,17 @@ export default function DiscoverPage() {
                 value={form.count}
                 onChange={(e) => setForm({ ...form, count: parseInt(e.target.value, 10) })}
               />
-              <div style={{ fontSize: "12px", color: "var(--text-tertiary)", marginTop: "4px" }}>
-                Maximum 20 leads per search
-              </div>
+              <div className="form-hint">Maximum 20 leads per search</div>
             </div>
 
-            <div style={{ marginBottom: "20px", display: "flex", alignItems: "center", gap: "8px" }}>
+            <div className="checkbox-row">
               <input
                 type="checkbox"
                 id="autoAdd"
                 checked={form.autoAdd}
                 onChange={(e) => setForm({ ...form, autoAdd: e.target.checked })}
-                style={{ width: "16px", height: "16px" }}
               />
-              <label htmlFor="autoAdd" style={{ fontSize: "14px", cursor: "pointer", userSelect: "none" }}>
-                Automatically add to leads database
-              </label>
+              <label htmlFor="autoAdd">Add results to the leads database</label>
             </div>
 
             <button
@@ -169,9 +171,11 @@ export default function DiscoverPage() {
             </button>
 
             {/* How it works */}
-            <div style={{ marginTop: "24px", padding: "16px", background: "var(--bg-secondary)", borderRadius: "var(--radius)", border: "1px solid var(--border)" }}>
-              <div style={{ fontSize: "13px", fontWeight: 500, marginBottom: "8px" }}>How it works</div>
-              <ul style={{ fontSize: "13px", color: "var(--text-secondary)", lineHeight: "1.8", paddingLeft: "20px", margin: 0 }}>
+            <div className="info-strip" style={{ marginTop: "24px", display: "block" }}>
+              <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-primary)", marginBottom: "8px" }}>
+                How it works
+              </div>
+              <ul style={{ lineHeight: 1.8, paddingLeft: "18px", margin: 0 }}>
                 <li>AI generates realistic leads matching your criteria</li>
                 <li>Each lead includes contact info and pain points</li>
                 <li>Leads are tagged with their discovery source</li>
@@ -216,32 +220,18 @@ export default function DiscoverPage() {
                 )}
               </div>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              <div className="grid-stack" style={{ gap: "12px" }}>
                 {results.leads?.map((lead, index) => (
-                  <div
-                    key={index}
-                    style={{
-                      padding: "16px",
-                      background: "var(--bg-secondary)",
-                      borderRadius: "var(--radius)",
-                      border: "1px solid var(--border)",
-                    }}
-                  >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: "8px" }}>
+                  <div key={index} className="list-tile">
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", gap: "12px", marginBottom: "8px" }}>
                       <div>
-                        <div style={{ fontSize: "15px", fontWeight: 600, marginBottom: "4px" }}>
-                          {lead.name}
-                        </div>
-                        <div style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
-                          {lead.email}
-                        </div>
+                        <div className="list-tile-title">{lead.name}</div>
+                        <div className="list-tile-meta">{lead.email}</div>
                       </div>
                       <span className="badge badge-primary">{lead.company}</span>
                     </div>
                     {lead.notes && (
-                      <div style={{ fontSize: "13px", color: "var(--text-secondary)", whiteSpace: "pre-wrap", lineHeight: "1.5" }}>
-                        {lead.notes}
-                      </div>
+                      <div className="list-tile-body">{lead.notes}</div>
                     )}
                   </div>
                 ))}
@@ -249,14 +239,7 @@ export default function DiscoverPage() {
 
               {/* Auto-redirect notice */}
               {form.autoAdd && (
-                <div style={{
-                  marginTop: "24px",
-                  padding: "16px",
-                  background: "var(--success)",
-                  color: "white",
-                  borderRadius: "var(--radius)",
-                  textAlign: "center",
-                }}>
+                <div className="banner banner-success" style={{ marginTop: "24px" }}>
                   <div style={{ fontSize: "14px", fontWeight: 500, marginBottom: "4px" }}>
                     ✓ Leads added successfully
                   </div>

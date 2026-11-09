@@ -38,6 +38,8 @@ import { trackingRouter }     from "../src/routes/tracking.js";
 import { activitiesRouter }   from "../src/routes/activities.js";
 import { inboxRouter }        from "../src/routes/inbox.js";
 import { oauthRouter }        from "../src/routes/oauth.js";
+import { workspaceRouter }    from "../src/routes/workspace.js";
+import { requireWorkspace } from "../src/middleware/requireWorkspace.js";
 
 // Resolve __dirname for ES Modules
 const __filename = fileURLToPath(import.meta.url);
@@ -105,6 +107,7 @@ app.use(
 // Routes — all mounted under /api so they match the frontend rewrite rule
 // ---------------------------------------------------------------------------
 
+app.use(requireWorkspace);
 app.use("/api/leads",        leadsRouter);
 app.use("/api/outreach",     outreachRouter);
 app.use("/api/chat",         chatRouter);
@@ -115,6 +118,7 @@ app.use("/api/track",        trackingRouter);
 app.use("/api/activities",   activitiesRouter);
 app.use("/api/inbox",        inboxRouter);
 app.use("/api/oauth",        oauthRouter);
+app.use("/api/workspace",    workspaceRouter);
 
 // Note: /api/desktop is intentionally omitted — opening local IDE apps has
 // no meaning in a serverless / cloud environment.

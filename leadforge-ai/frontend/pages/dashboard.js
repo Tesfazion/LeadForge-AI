@@ -1,263 +1,431 @@
-import useSWR from "swr";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import useSWR from "swr";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { api } from "../lib/api";
-import { useMemo } from "react";
-import { getStatusBadgeClass, formatStatus } from "../lib/utils";
+import Icon from "../components/Icon";
+import { formatDate, formatStatus, getStatusBadgeClass } from "../lib/utils";
+
+const RANGE_OPTIONS = [
+  { label: "7 days", value: 7 },
+  { label: "30 days", value: 30 },
+  { label: "90 days", value: 90 },
+];
+
+function getInitials(value) {
+  return (value || "?")
+    .split(/[\s@._-]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0].toUpperCase())
+    .join("");
+}
+
+function getActivityLabel(activity) {
+  const action = (activity.action || "updated pipeline").replace(/_/g, " ");
+  return action.charAt(0).toUpperCase() + action.slice(1);
+}
+
+function ActivityItem({ activity }) {
+  const href = activity.leadId
+    ? `/leads/${activity.leadId}`
+    : activity.projectId
+      ? "/projects"
+      : "/agents";
+
+  return (
+    <Link href={href} className="activity-feed-item">
+      <span className={`activity-feed-dot status-${activity.status || "idle"}`} aria-hidden="true" />
+      <span className="activity-feed-copy">
+        <span className="activity-feed-title">{getActivityLabel(activity)}</span>
+        <span className="activity-feed-meta">
+          {(activity.agent || "LeadForge").replace(/_/g, " ")}
+          {activity.status === "error" ? " · Needs attention" : ""}
+        </span>
+      </span>
+      <time className="activity-feed-time" dateTime={activity.timestamp}>
+        {new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(new Date(activity.timestamp))}
+      </time>
+    </Link>
+  );
+}
 
 export default function DashboardPage() {
-  const { data: leads } = useSWR("leads", api.getLeads);
-  const { data: sourceStats } = useSWR("discovery/stats", api.getDiscoveryStats);
+  const [range, setRange] = useState(30);
+  useEffect(() => {
+    const savedRange = Number(localStorage.getItem("leadforge.dashboardRange"));
+    if (RANGE_OPTIONS.some((option) => option.value === savedRange)) setRange(savedRange);
+  }, []);
+  const { data: summary, error, mutate, isValidating } = useSWR(
+    ["dashboard-summary", range],
+    ([, period]) => api.getDashboardSummary(period)
+  );
+  const { data: activities, error: activityError } = useSWR("dashboard-activities", () => api.getActivities(8), {
+    refreshInterval: 15_000,
+  });
 
-  const stats = useMemo(() => {
-    if (!leads) return null;
-    
-    const now = new Date();
-    const lastWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const lastMonth = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const dashboard = useMemo(() => {
+    if (!summary) return null;
+    const { statusCounts } = summary;
+    const qualified = statusCounts.QUALIFIED || 0;
+    const replied = statusCounts.REPLIED || 0;
 
-    const recentLeads = leads.filter(l => new Date(l.createdAt) > lastWeek);
-    const lastMonthLeads = leads.filter(l => {
-      const created = new Date(l.createdAt);
-      return created > lastMonth && created <= lastWeek;
-    });
+    const stages = [
+      { label: "New", count: statusCounts.NEW || 0, color: "var(--dash-stage-new)" },
+      { label: "Drafting", count: (statusCounts.OUTREACH_DRAFTED || 0) + (statusCounts.OUTREACH_PENDING_APPROVAL || 0), color: "var(--dash-stage-draft)" },
+      { label: "Contacted", count: statusCounts.OUTREACH_SENT || 0, color: "var(--dash-stage-outreach)" },
+      { label: "Replied", count: replied, color: "var(--dash-stage-replied)" },
+      { label: "Qualified", count: qualified, color: "var(--dash-stage-qualified)" },
+    ];
 
     return {
-      total: leads.length,
-      new: leads.filter(l => l.status === "NEW").length,
-      replied: leads.filter(l => l.status === "REPLIED").length,
-      qualified: leads.filter(l => l.status === "QUALIFIED").length,
-      recentCount: recentLeads.length,
-      recentGrowth: lastMonthLeads.length > 0 
-        ? ((recentLeads.length - lastMonthLeads.length) / lastMonthLeads.length * 100).toFixed(1)
-        : 0,
-      conversionRate: leads.length > 0 
-        ? (leads.filter(l => l.status === "QUALIFIED").length / leads.length * 100).toFixed(1)
-        : 0,
+      ...summary,
+      stages,
     };
-  }, [leads]);
+  }, [summary]);
 
-  const recentLeads = useMemo(() => {    if (!leads) return [];
-    return [...leads]
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-      .slice(0, 5);
-  }, [leads]);
+  const greeting = new Intl.DateTimeFormat(undefined, { weekday: "long", month: "long", day: "numeric" }).format(new Date());
+  const priorityAction = dashboard?.pendingOutreachCount
+    ? {
+        eyebrow: "Waiting on you",
+        title: `${dashboard.pendingOutreachCount} draft${dashboard.pendingOutreachCount === 1 ? "" : "s"} ready for review`,
+        detail: "Your approval is the final step before outreach goes out.",
+        href: "/outreach",
+        action: "Review drafts",
+        icon: "mail",
+      }
+    : {
+        eyebrow: "Keep momentum",
+        title: dashboard?.total ? "Find your next great-fit prospects" : "Bring your first prospects into LeadForge",
+        detail: "Build a steady, qualified pipeline with a focused search.",
+        href: "/discover",
+        action: "Discover leads",
+        icon: "search",
+      };
 
-  const statusDistribution = useMemo(() => {
-    if (!leads) return [];
-    const counts = {};
-    leads.forEach(lead => {
-      counts[lead.status] = (counts[lead.status] || 0) + 1;
-    });
-    return Object.entries(counts).map(([status, count]) => ({
-      status,
-      count,
-      percentage: ((count / leads.length) * 100).toFixed(1),
-    }));
-  }, [leads]);
-
-  // getStatusBadgeClass is imported from lib/utils — no local copy needed
-
-  if (!stats) {
+  if (error) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "400px" }}>
-        <div className="spinner"></div>
+      <>
+        <div className="page-header">
+          <div className="page-header-row">
+            <div>
+              <span className="dashboard-kicker">WORKSPACE OVERVIEW</span>
+              <h1 className="page-title">Your pipeline, at a glance.</h1>
+              <p className="page-description">A clear view of momentum, conversations, and what deserves your attention.</p>
+            </div>
+          </div>
+        </div>
+        <div className="dashboard-error" role="alert">
+          <div>
+            <h2 className="dashboard-error-title">We couldn&apos;t reach your workspace</h2>
+            <p className="dashboard-error-description">Check your API connection and retry. Your data hasn&apos;t been changed.</p>
+          </div>
+          <button className="btn btn-secondary" type="button" onClick={() => mutate()} disabled={isValidating}>
+            {isValidating ? "Reconnecting…" : "Try again"}
+          </button>
+        </div>
+      </>
+    );
+  }
+
+  if (!dashboard) {
+    return (
+      <div className="dashboard-loading" role="status" aria-busy="true">
+        <span className="dashboard-loading-mark"><Icon name="chart" size={22} /></span>
+        <span>Preparing your workspace…</span>
       </div>
     );
   }
 
   return (
-    <>
-      <div className="page-header">
-        <div className="page-header-row">
-          <div>
-            <h1 className="page-title">Dashboard</h1>
-            <p className="page-description">
-              Overview of your lead generation and outreach performance
-            </p>
-          </div>
-          <div className="page-actions">
-            <Link href="/discover" className="btn btn-primary">
-              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-              </svg>
-              Discover Leads
-            </Link>
+    <div className="dashboard">
+      <header className="dashboard-heading">
+        <div>
+          <span className="dashboard-kicker">WORKSPACE OVERVIEW</span>
+          <h1 className="dashboard-title">Your pipeline, at a glance.</h1>
+          <p className="dashboard-subtitle">A clear view of momentum, conversations, and what deserves your attention.</p>
+        </div>
+        <div className="dashboard-heading-actions">
+          <span className="dashboard-date"><span className="dashboard-live-dot" />{greeting}</span>
+          <Link href="/leads" className="btn btn-secondary dashboard-add-button">
+            <Icon name="plus" size={17} /> Add a lead
+          </Link>
+          <Link href="/discover" className="btn btn-primary dashboard-discover-button">
+            <Icon name="search" size={17} /> Find prospects
+          </Link>
+        </div>
+      </header>
+
+      <section className="dashboard-hero" aria-label="Pipeline summary">
+        <div className="dashboard-hero-copy">
+          <span className="dashboard-hero-eyebrow"><span className="dashboard-pulse" /> LEADFORGE WORKSPACE</span>
+          <h2>Build a stronger <span>pipeline.</span></h2>
+          <p>Turn focused discovery and thoughtful follow-up into a reliable path from first contact to opportunity.</p>
+          <div className="dashboard-hero-links">
+            <Link href="/leads">Explore your pipeline <span aria-hidden="true">→</span></Link>
+            <span className="dashboard-hero-divider" aria-hidden="true" />
+            <Link href="/agents">Meet your AI agents <span aria-hidden="true">→</span></Link>
           </div>
         </div>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-card-header">
-            <span className="stat-label">Total Leads</span>
-            <div className="stat-icon">
-              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
-              </svg>
-            </div>
+        <div className="dashboard-hero-aside" aria-label="Pipeline performance">
+          <div className="hero-metric">
+            <span className="hero-metric-label">Qualified conversion</span>
+            <span className="hero-metric-value">{dashboard.conversion.toFixed(1)}<small>%</small></span>
+            <span className="hero-metric-note">of all leads are qualified</span>
           </div>
-          <div className="stat-value">{stats.total}</div>
-          <div className={`stat-change ${stats.recentGrowth >= 0 ? 'positive' : 'negative'}`}>
-            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d={stats.recentGrowth >= 0 ? "M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22" : "M2.25 6L9 12.75l4.286-4.286a11.948 11.948 0 014.306 6.43l.776 2.898"} />
-            </svg>
-            {Math.abs(stats.recentGrowth)}% from last week
+          <div className="hero-metric-rule" />
+          <div className="hero-metric">
+            <span className="hero-metric-label">Response rate</span>
+            <span className="hero-metric-value">{dashboard.responseRate.toFixed(1)}<small>%</small></span>
+            <span className="hero-metric-note">of contacted leads replied</span>
           </div>
         </div>
+        <span className="dashboard-hero-orbit dashboard-hero-orbit-one" aria-hidden="true" />
+        <span className="dashboard-hero-orbit dashboard-hero-orbit-two" aria-hidden="true" />
+      </section>
 
-        <div className="stat-card">
-          <div className="stat-card-header">
-            <span className="stat-label">Active Leads</span>
-            <div className="stat-icon">
-              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
-              </svg>
+      <section className="dashboard-stat-grid" aria-label="Pipeline key metrics">
+        <article className="dashboard-stat-card dashboard-stat-primary">
+          <span className="dashboard-stat-icon"><Icon name="users" size={18} /></span>
+          <span className="dashboard-stat-label">Total prospects</span>
+          <strong className="dashboard-stat-value">{dashboard.total.toLocaleString()}</strong>
+          <span className="dashboard-stat-foot">Across every stage</span>
+        </article>
+        <article className="dashboard-stat-card">
+          <span className="dashboard-stat-icon stat-icon-blue"><Icon name="mail" size={18} /></span>
+          <span className="dashboard-stat-label">Reached</span>
+          <strong className="dashboard-stat-value">{dashboard.contacted.toLocaleString()}</strong>
+          <span className="dashboard-stat-foot">Outreach sent</span>
+        </article>
+        <article className="dashboard-stat-card">
+          <span className="dashboard-stat-icon stat-icon-green"><Icon name="message" size={18} /></span>
+          <span className="dashboard-stat-label">Responded</span>
+          <strong className="dashboard-stat-value">{dashboard.responded.toLocaleString()}</strong>
+          <span className="dashboard-stat-foot">Replies, including qualified prospects</span>
+        </article>
+        <article className="dashboard-stat-card">
+          <span className="dashboard-stat-icon stat-icon-purple"><Icon name="check-circle" size={18} /></span>
+          <span className="dashboard-stat-label">Qualified</span>
+          <strong className="dashboard-stat-value">{dashboard.qualified.toLocaleString()}</strong>
+          <span className="dashboard-stat-foot">Ready for the next step</span>
+        </article>
+      </section>
+
+      {dashboard.total === 0 ? (
+        <section className="dashboard-empty-workspace">
+          <div className="dashboard-empty-symbol"><Icon name="rocket" size={25} /></div>
+          <div className="dashboard-empty-copy">
+            <span className="dashboard-section-eyebrow">A better kind of pipeline starts here</span>
+            <h2>Your next customer is out there.</h2>
+            <p>Discover prospects that fit your business, or add contacts you already know. LeadForge brings every next step into one thoughtful workflow.</p>
+            <div className="dashboard-empty-actions">
+              <Link href="/discover" className="btn btn-primary"><Icon name="search" size={17} /> Discover prospects</Link>
+              <Link href="/leads" className="btn btn-secondary"><Icon name="plus" size={17} /> Add a contact</Link>
             </div>
           </div>
-          <div className="stat-value">{stats.replied}</div>
-          <div className="stat-change">Currently in conversation</div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-card-header">
-            <span className="stat-label">Qualified</span>
-            <div className="stat-icon">
-              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
+          <div className="dashboard-empty-steps">
+            <span><b>01</b> Find the right people</span>
+            <span><b>02</b> Review thoughtful outreach</span>
+            <span><b>03</b> Turn replies into opportunity</span>
           </div>
-          <div className="stat-value">{stats.qualified}</div>
-          <div className="stat-change positive">
-            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22" />
-            </svg>
-            {stats.conversionRate}% conversion rate
-          </div>
-        </div>
+        </section>
+      ) : (
+        <>
+          <div className="dashboard-main-grid">
+            <section className="dashboard-panel dashboard-trend-panel" aria-labelledby="trend-title">
+              <div className="dashboard-panel-heading">
+                <div>
+                  <span className="dashboard-section-eyebrow">PIPELINE MOMENTUM</span>
+                  <h2 id="trend-title">New prospects</h2>
+                  <p>Prospects added during the selected period</p>
+                </div>
+                <label className="dashboard-range-label">
+                  <span className="sr-only">Chart time period</span>
+                  <select
+                    value={range}
+                    onChange={(event) => {
+                      const nextRange = Number(event.target.value);
+                      setRange(nextRange);
+                      localStorage.setItem("leadforge.dashboardRange", String(nextRange));
+                    }}
+                    className="dashboard-range"
+                  >
+                    {RANGE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  </select>
+                </label>
+              </div>
+              <div className="dashboard-trend-summary">
+                <strong>{dashboard.currentCount.toLocaleString()}</strong>
+                <span>new in {range} days</span>
+                <span className={`dashboard-period-change ${dashboard.change !== null && dashboard.change >= 0 ? "is-positive" : "is-negative"}`}>
+                  {dashboard.change === null
+                      ? dashboard.currentCount ? "New activity" : "No prior activity"
+                    : `${dashboard.change >= 0 ? "+" : ""}${dashboard.change.toFixed(0)}% vs previous`}
+                </span>
+              </div>
+              <div className="dashboard-chart" role="img" aria-label={`New leads over the last ${range} days`}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={dashboard.trend} margin={{ top: 10, right: 4, bottom: 0, left: -18 }}>
+                    <defs>
+                      <linearGradient id="leadTrendFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#4c8874" stopOpacity={0.23} />
+                        <stop offset="96%" stopColor="#4c8874" stopOpacity={0.015} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid vertical={false} stroke="var(--dash-chart-grid)" strokeDasharray="3 5" />
+                    <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: "var(--dash-chart-label)", fontSize: 11 }} interval={range === 30 ? 4 : range === 90 ? 1 : 0} />
+                    <YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{ fill: "var(--dash-chart-label)", fontSize: 11 }} />
+                    <Tooltip
+                      contentStyle={{ background: "var(--surface-solid)", border: "1px solid var(--border)", borderRadius: 10, boxShadow: "var(--shadow-md)" }}
+                      labelStyle={{ color: "var(--text-secondary)", fontSize: 12 }}
+                      itemStyle={{ color: "var(--text-primary)", fontSize: 13, fontWeight: 600 }}
+                      formatter={(value) => [value, "New prospects"]}
+                    />
+                    <Area type="monotone" dataKey="leads" stroke="#397b68" strokeWidth={2.5} fill="url(#leadTrendFill)" activeDot={{ r: 5, fill: "#397b68", stroke: "var(--surface-solid)", strokeWidth: 3 }} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </section>
 
-        <div className="stat-card">
-          <div className="stat-card-header">
-            <span className="stat-label">New This Week</span>
-            <div className="stat-icon">
-              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
+            <section className="dashboard-panel dashboard-action-panel" aria-labelledby="action-title">
+              <div className="dashboard-panel-heading">
+                <div>
+                  <span className="dashboard-section-eyebrow">YOUR NEXT MOVE</span>
+                  <h2 id="action-title">Stay in motion</h2>
+                  <p>A little progress goes a long way.</p>
+                </div>
+                <span className="dashboard-panel-mark"><Icon name="rocket" size={17} /></span>
+              </div>
+              <Link href={priorityAction.href} className="dashboard-next-action">
+                <span className="next-action-icon"><Icon name={priorityAction.icon} size={19} /></span>
+                <span className="next-action-content">
+                  <span className="next-action-eyebrow">{priorityAction.eyebrow}</span>
+                  <strong>{priorityAction.title}</strong>
+                  <span>{priorityAction.detail}</span>
+                  <span className="next-action-link">{priorityAction.action} <span aria-hidden="true">→</span></span>
+                </span>
+              </Link>
+              <div className="dashboard-shortcut-list">
+                <Link href="/conversations">
+                  <span className="shortcut-dot shortcut-dot-green" />
+                  <span>Continue conversations</span>
+                  <Icon name="arrow-right" size={15} />
+                </Link>
+                <Link href="/agents">
+                  <span className="shortcut-dot shortcut-dot-blue" />
+                  <span>Check your AI team</span>
+                  <Icon name="arrow-right" size={15} />
+                </Link>
+              </div>
+            </section>
           </div>
-          <div className="stat-value">{stats.recentCount}</div>
-          <div className="stat-change">Last 7 days</div>
-        </div>
-      </div>
 
-      {/* Main Content Grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: "24px", marginBottom: "24px" }}>
-        {/* Recent Leads */}
-        <div className="card">
-          <div className="card-header">
-            <div>
-              <div className="card-title">Recent Leads</div>
-              <div className="card-subtitle">Your latest prospects</div>
-            </div>
-            <Link href="/" className="btn btn-sm btn-secondary">View All</Link>
-          </div>
-
-          <div className="table-container">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Contact</th>
-                  <th>Company</th>
-                  <th>Status</th>
-                  <th>Added</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentLeads.map((lead) => (
-                  <tr key={lead.id}>
-                    <td>
-                      <div style={{ fontWeight: 500 }}>{lead.name || lead.email}</div>
-                      <div style={{ fontSize: "13px", color: "var(--text-tertiary)" }}>{lead.email}</div>
-                    </td>
-                    <td>{lead.company || "—"}</td>
-                    <td>
-                      <span className={`badge ${getStatusBadgeClass(lead.status)}`}>
-                        {formatStatus(lead.status)}
-                      </span>
-                    </td>
-                    <td style={{ color: "var(--text-secondary)", fontSize: "13px" }}>
-                      {new Date(lead.createdAt).toLocaleDateString()}
-                    </td>
-                  </tr>
+          <div className="dashboard-lower-grid">
+            <section className="dashboard-panel dashboard-leads-panel" aria-labelledby="recent-leads-title">
+              <div className="dashboard-panel-heading">
+                <div>
+                  <span className="dashboard-section-eyebrow">RECENTLY ADDED</span>
+                  <h2 id="recent-leads-title">Your latest prospects</h2>
+                </div>
+                <Link href="/leads" className="dashboard-text-link">All prospects <span aria-hidden="true">→</span></Link>
+              </div>
+              <div className="dashboard-lead-list">
+                {dashboard.latestLeads.map((lead) => (
+                  <Link href={`/leads/${lead.id}`} key={lead.id} className="dashboard-lead-row">
+                    <span className="dashboard-lead-avatar">{getInitials(lead.name || lead.email)}</span>
+                    <span className="dashboard-lead-main">
+                      <strong>{lead.name || lead.email}</strong>
+                      <span>{lead.company || lead.email}</span>
+                    </span>
+                    <span className={`badge ${getStatusBadgeClass(lead.status)}`}>{formatStatus(lead.status)}</span>
+                    <time className="dashboard-lead-date" dateTime={lead.createdAt}>{formatDate(lead.createdAt)}</time>
+                    <Icon name="arrow-right" size={15} className="dashboard-row-arrow" />
+                  </Link>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </div>
+            </section>
 
-          {recentLeads.length === 0 && (
-            <div className="empty-state">
-              <div className="empty-state-title">No leads yet</div>
-              <div className="empty-state-description">Start by discovering or adding leads</div>
+            <section className="dashboard-panel dashboard-funnel-panel" aria-labelledby="funnel-title">
+              <div className="dashboard-panel-heading">
+                <div>
+                  <span className="dashboard-section-eyebrow">LEAD HEALTH</span>
+                  <h2 id="funnel-title">Pipeline stages</h2>
+                </div>
+                <Link href="/analytics" className="dashboard-panel-icon-link" aria-label="View analytics"><Icon name="trending" size={17} /></Link>
+              </div>
+              <div className="dashboard-funnel">
+                {dashboard.stages.map((stage, index) => (
+                  <div className="dashboard-funnel-stage" key={stage.label}>
+                    <div className="funnel-stage-copy">
+                      <span className="funnel-stage-name"><i style={{ backgroundColor: stage.color }} />{stage.label}</span>
+                      <strong>{stage.count.toLocaleString()}</strong>
+                    </div>
+                    <div className="funnel-stage-track" role="meter" aria-label={`${stage.label} share of all prospects`} aria-valuenow={dashboard.total ? Math.round((stage.count / dashboard.total) * 100) : 0} aria-valuemin={0} aria-valuemax={100}>
+                      <span style={{ width: `${dashboard.total ? Math.max((stage.count / dashboard.total) * 100, stage.count ? 3 : 0) : 0}%`, backgroundColor: stage.color }} />
+                    </div>
+                    {index < dashboard.stages.length - 1 && <span className="funnel-stage-connector" aria-hidden="true" />}
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+        </>
+      )}
+
+      <div className="dashboard-bottom-grid">
+        <section className="dashboard-panel dashboard-activity-panel" aria-labelledby="activity-title">
+          <div className="dashboard-panel-heading">
+            <div>
+              <span className="dashboard-section-eyebrow">THE TEAM AT WORK</span>
+              <h2 id="activity-title">Recent activity</h2>
+            </div>
+            <Link href="/agents" className="dashboard-text-link">Agent activity <span aria-hidden="true">→</span></Link>
+          </div>
+          {activityError ? (
+            <div className="dashboard-activity-empty" role="status">
+              <span className="activity-empty-mark"><Icon name="warning" size={18} /></span>
+              <span><strong>Activity is temporarily unavailable</strong><small>Your pipeline summary is still up to date.</small></span>
+            </div>
+          ) : activities?.length ? (
+            <div className="activity-feed">{activities.slice(0, 5).map((activity) => <ActivityItem key={activity.id} activity={activity} />)}</div>
+          ) : (
+            <div className="dashboard-activity-empty">
+              <span className="activity-empty-mark"><Icon name="robot" size={18} /></span>
+              <span><strong>Your AI team is ready</strong><small>Activity will appear here as your pipeline moves.</small></span>
             </div>
           )}
-        </div>
-
-        {/* Status Distribution */}
-        <div className="card">
-          <div className="card-header">
-            <div>
-              <div className="card-title">Lead Status</div>
-              <div className="card-subtitle">Distribution by stage</div>
-            </div>
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-            {statusDistribution.map(({ status, count, percentage }) => (
-              <div key={status}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                  <span style={{ fontSize: "13px", fontWeight: 500 }}>{formatStatus(status)}</span>
-                  <span style={{ fontSize: "13px", color: "var(--text-secondary)" }}>{count}</span>
-                </div>
-                <div style={{ height: "6px", background: "var(--gray-200)", borderRadius: "3px", overflow: "hidden" }}>
-                  <div style={{
-                    height: "100%",
-                    width: `${percentage}%`,
-                    background: "var(--primary-600)",
-                    transition: "width 0.3s ease",
-                  }} />
-                </div>
+        </section>
+        {!!dashboard.sourceStats && Object.keys(dashboard.sourceStats).length > 0 && (
+          <section className="dashboard-panel dashboard-sources-panel" aria-labelledby="sources-title">
+            <div className="dashboard-panel-heading">
+              <div>
+                <span className="dashboard-section-eyebrow">DISCOVERY MIX</span>
+                <h2 id="sources-title">Where leads come from</h2>
               </div>
-            ))}
-          </div>
-        </div>
+              <span className="dashboard-panel-mark"><Icon name="search" size={16} /></span>
+            </div>
+            <div className="dashboard-source-list">
+              {Object.entries(dashboard.sourceStats).slice(0, 4).map(([source, count]) => (
+                <div className="dashboard-source-row" key={source}>
+                  <span>{source}</span><strong>{count}</strong>
+                </div>
+              ))}
+            </div>
+            <div className="dashboard-workspace-status">
+              <span className="dashboard-live-dot" />
+              Counts by acquisition source
+            </div>
+          </section>
+        )}
       </div>
-
-      {/* Lead Sources */}
-      {sourceStats && Object.keys(sourceStats).length > 0 && (
-        <div className="card">
-          <div className="card-header">
-            <div>
-              <div className="card-title">Lead Sources</div>
-              <div className="card-subtitle">Where your leads are coming from</div>
-            </div>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "16px" }}>
-            {Object.entries(sourceStats).map(([source, count]) => (
-              <div key={source} style={{
-                padding: "16px",
-                background: "var(--bg-secondary)",
-                borderRadius: "var(--radius)",
-                border: "1px solid var(--border)",
-              }}>
-                <div style={{ fontSize: "24px", fontWeight: 700, marginBottom: "4px" }}>{count}</div>
-                <div style={{ fontSize: "13px", color: "var(--text-secondary)" }}>{source}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </>
+    </div>
   );
 }

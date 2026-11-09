@@ -31,18 +31,7 @@ trackingRouter.get("/open/:token", async (req, res) => {
       timestamp: new Date(),
     };
 
-    const result = recordOpen(token, metadata);
-    
-    if (result) {
-      // Update message tracking in database
-      await prisma.message.update({
-        where: { id: result.messageId },
-        data: {
-          // You could add tracking fields to Message model
-          // openedAt: result.firstOpen ? new Date() : undefined,
-        },
-      }).catch(() => {}); // Ignore errors if message not found
-    }
+    recordOpen(token, metadata);
 
     // Return 1x1 transparent GIF
     const pixel = Buffer.from(
@@ -79,17 +68,7 @@ trackingRouter.get("/click/:token", async (req, res) => {
     };
 
     const result = recordClick(token, metadata);
-    
     if (result) {
-      // Update message tracking in database
-      await prisma.message.update({
-        where: { id: result.messageId },
-        data: {
-          // You could add tracking fields to Message model
-          // clickedAt: result.firstClick ? new Date() : undefined,
-        },
-      }).catch(() => {}); // Ignore errors
-      
       // Redirect to original URL
       return res.redirect(result.originalUrl);
     }

@@ -293,33 +293,35 @@ buildRouter.get("/:projectId/status", async (req, res, next) => {
  * GET /build/:projectId/stream
  * Server-Sent Events stream for real-time build progress
  */
-buildRouter.get("/:projectId/stream", (req, res) => {
-  const projectId = req.params.projectId;
+buildRouter.get("/:projectId/stream", async (req, res, next) => {
+  try {
+    const projectId = req.params.projectId;
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { id: true },
+    });
+    if (!project) return res.status(404).json({ error: "Project not found" });
 
-  // Set up SSE
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
-  res.setHeader("X-Accel-Buffering", "no"); // Disable nginx buffering
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no");
 
-  // Get builder instance
-  const builder = getRealtimeBuilder();
+    const builder = getRealtimeBuilder();
+    res.write(`data: ${JSON.stringify({ type: "connected", projectId })}\n\n`);
 
-  // Send initial connection message
-  res.write(`data: ${JSON.stringify({ type: "connected", projectId })}\n\n`);
+    const progressHandler = (data) => {
+      if (data.projectId === projectId) {
+        res.write(`data: ${JSON.stringify({ type: "progress", ...data })}\n\n`);
+      }
+    };
 
-  // Listen for progress updates
-  const progressHandler = (data) => {
-    if (data.projectId === projectId) {
-      res.write(`data: ${JSON.stringify({ type: "progress", ...data })}\n\n`);
-    }
-  };
-
-  builder.on("progress", progressHandler);
-
-  // Clean up on close
-  req.on("close", () => {
-    builder.off("progress", progressHandler);
-    res.end();
-  });
+    builder.on("progress", progressHandler);
+    res.on("close", () => {
+      builder.off("progress", progressHandler);
+      res.end();
+    });
+  } catch (error) {
+    next(error);
+  }
 });

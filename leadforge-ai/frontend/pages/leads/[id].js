@@ -11,6 +11,7 @@
  */
 
 import { useRouter } from "next/router";
+import Link from "next/link";
 import useSWR from "swr";
 import { useState, useEffect } from "react";
 import { api } from "../../lib/api";
@@ -111,9 +112,62 @@ export default function LeadDetailPage() {
   // Render helpers
   // ---------------------------------------------------------------------------
 
-  if (isLoading) return <div className="empty-state"><div className="spinner" /></div>;
-  if (error)     return <div className="empty-state">Failed to load lead.</div>;
-  if (!lead)     return null;
+  // Header shown in the loading / error / not-found states, so the page never
+  // renders as an unlabelled blank while the API is unreachable.
+  const fallbackHeader = (
+    <div className="page-header">
+      <div className="page-header-row">
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
+            <button onClick={() => router.back()} className="btn-icon" aria-label="Go back">
+              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+              </svg>
+            </button>
+            <h1 className="page-title" style={{ marginBottom: 0 }}>Lead</h1>
+          </div>
+          <p className="page-description">Conversation, requirements and website projects</p>
+        </div>
+      </div>
+    </div>
+  );
+
+  // router.query is empty on the first client render for dynamic routes, so
+  // treat a missing id as "still resolving" rather than "not found".
+  if (!id || isLoading) {
+    return (
+      <>
+        {fallbackHeader}
+        <div className="empty-state"><div className="spinner" /></div>
+      </>
+    );
+  }
+
+  if (error) {
+    return (
+      <>
+        {fallbackHeader}
+        <div className="banner banner-error">
+          Failed to load this lead. Check that the API is reachable, then reload.
+        </div>
+      </>
+    );
+  }
+
+  if (!lead) {
+    return (
+      <>
+        {fallbackHeader}
+        <div className="empty-state">
+          <h3 className="empty-state-title">Lead not found</h3>
+          <p className="empty-state-description">
+            It may have been deleted, or the link is incorrect.
+          </p>
+          <Link href="/leads" className="btn btn-primary">Back to leads</Link>
+        </div>
+      </>
+    );
+  }
 
   const pipelineSteps = PIPELINE.map((step) => ({
     ...step,
@@ -173,8 +227,8 @@ export default function LeadDetailPage() {
       {/* Pipeline stepper                                                     */}
       {/* ------------------------------------------------------------------ */}
       <div className="card" style={{ marginBottom: "24px" }}>
-        <h3 style={{ fontSize: "14px", fontWeight: 600, marginBottom: "20px", color: "var(--text-secondary)" }}>
-          Pipeline Progress
+        <h3 style={{ fontSize: "13px", fontWeight: 600, marginBottom: "20px", color: "var(--text-secondary)" }}>
+          Pipeline progress
         </h3>
 
         <div style={{ display: "flex", alignItems: "center" }}>
@@ -186,7 +240,7 @@ export default function LeadDetailPage() {
                   width: "40px",
                   height: "40px",
                   borderRadius: "50%",
-                  background: step.active ? "var(--primary-500)" : "var(--bg-tertiary)",
+                  background: step.active ? "var(--primary-700)" : "var(--bg-tertiary)",
                   color: step.active ? "white" : "var(--text-tertiary)",
                   display: "flex",
                   alignItems: "center",
@@ -213,7 +267,7 @@ export default function LeadDetailPage() {
                   height: "2px",
                   flex: 1,
                   background: step.active && pipelineSteps[index + 1].active
-                    ? "var(--primary-500)"
+                    ? "var(--primary-600)"
                     : "var(--border)",
                   marginBottom: "28px",
                   transition: "background 0.3s ease",
@@ -236,8 +290,8 @@ export default function LeadDetailPage() {
               padding: "12px 24px",
               background: "none",
               border: "none",
-              borderBottom: `2px solid ${activeTab === tab ? "var(--primary-500)" : "transparent"}`,
-              color: activeTab === tab ? "var(--primary-400)" : "var(--text-secondary)",
+              borderBottom: `2px solid ${activeTab === tab ? "var(--brand-primary)" : "transparent"}`,
+              color: activeTab === tab ? "var(--primary-700)" : "var(--text-secondary)",
               fontWeight: activeTab === tab ? 600 : 500,
               fontSize: "14px",
               cursor: "pointer",
@@ -249,12 +303,13 @@ export default function LeadDetailPage() {
             {tab === "conversation" && totalMessages > 0 && (
               <span style={{
                 marginLeft: "8px",
-                padding: "2px 6px",
-                background: "var(--primary-900)",
-                color: "var(--primary-300)",
+                padding: "2px 8px",
+                background: "var(--primary-50)",
+                color: "var(--primary-700)",
+                border: "1px solid var(--primary-100)",
                 borderRadius: "var(--radius-full)",
                 fontSize: "11px",
-                fontWeight: 600,
+                fontWeight: 700,
               }}>
                 {totalMessages}
               </span>
@@ -342,19 +397,7 @@ export default function LeadDetailPage() {
                         style={{ display: "flex", flexDirection: isLead ? "row" : "row-reverse", gap: "12px" }}
                       >
                         {/* Avatar */}
-                        <div style={{
-                          width: "36px",
-                          height: "36px",
-                          borderRadius: "50%",
-                          background: isLead ? "var(--primary-900)" : "var(--bg-tertiary)",
-                          color: isLead ? "var(--primary-300)" : "var(--text-secondary)",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontWeight: 600,
-                          fontSize: "14px",
-                          flexShrink: 0,
-                        }}>
+                        <div className={`avatar avatar-sm ${isLead ? "" : "is-agent"}`} aria-hidden="true">
                           {isLead ? getInitial(lead.name) : "AI"}
                         </div>
 
@@ -364,13 +407,13 @@ export default function LeadDetailPage() {
                           maxWidth: "70%",
                           padding: "12px 16px",
                           borderRadius: "var(--radius-lg)",
-                          background: isLead ? "var(--bg-secondary)" : "var(--primary-500)",
+                          background: isLead ? "var(--bg-secondary)" : "var(--primary-700)",
                           color: isLead ? "var(--text-primary)" : "white",
                         }}>
-                          <div style={{ fontSize: "11px", fontWeight: 600, marginBottom: "6px", opacity: 0.7 }}>
+                          <div style={{ fontSize: "11px", fontWeight: 600, marginBottom: "6px", opacity: 0.85 }}>
                             {isLead ? (lead.name || "Lead") : "AI Agent"}
                             {!m.approved && !isLead && (
-                              <span style={{ marginLeft: "8px", padding: "2px 6px", background: "rgba(255,255,255,0.2)", borderRadius: "var(--radius-sm)" }}>
+                              <span style={{ marginLeft: "8px", padding: "2px 6px", background: "rgba(255,255,255,0.25)", color: "inherit", fontWeight: 600, borderRadius: "var(--radius-sm)" }}>
                                 Pending Approval
                               </span>
                             )}
@@ -524,10 +567,10 @@ export default function LeadDetailPage() {
                   }}>
                     <div className="spinner" style={{ width: "20px", height: "20px", borderWidth: "2px", flexShrink: 0 }} />
                     <div>
-                      <div style={{ fontSize: "14px", fontWeight: 600, marginBottom: "4px" }}>
+                      <div style={{ fontSize: "14px", fontWeight: 600, marginBottom: "4px", color: "var(--warning-700)" }}>
                         {project.status === "BUILDING" ? "Building…" : "Deploying to Vercel…"}
                       </div>
-                      <div style={{ fontSize: "12px", color: "var(--text-secondary)" }}>
+                      <div style={{ fontSize: "12px", color: "var(--warning-700)", opacity: 0.8 }}>
                         The Developer Agent is generating your site
                       </div>
                     </div>
@@ -543,14 +586,14 @@ export default function LeadDetailPage() {
                     borderRadius: "var(--radius)",
                     marginBottom: "16px",
                   }}>
-                    <div style={{ fontSize: "14px", fontWeight: 600, marginBottom: "8px", color: "var(--success)" }}>
+                    <div style={{ fontSize: "14px", fontWeight: 600, marginBottom: "8px", color: "var(--success-700)" }}>
                       🎉 Site deployed successfully!
                     </div>
                     <a
                       href={project.deployUrl}
                       target="_blank"
                       rel="noreferrer"
-                      style={{ color: "var(--primary-400)", fontSize: "14px", fontWeight: 500 }}
+                      style={{ color: "var(--blue-700)", fontSize: "14px", fontWeight: 500 }}
                     >
                       {project.deployUrl} ↗
                     </a>
