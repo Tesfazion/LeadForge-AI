@@ -4,14 +4,9 @@
  * Entry point: `discoverLeads(criteria)` — exported and called by the
  * /discovery/search route.
  *
- * Source priority (controlled by `criteria.source`):
- *   1. Apollo.io  — if APOLLO_API_KEY is set
- *   2. Clearbit   — if CLEARBIT_API_KEY is set
- *   3. AI fallback — GPT-4o-mini generates realistic fictional leads
- *
- * When `source` is "auto" (default), the agent tries each real source in
- * order and falls back to AI if none are configured or if they fail.
- * Pass `source: "ai"` to skip all real sources regardless of config.
+ * Real prospect records come from Apollo. AI-generated fictional records are
+ * available only through the explicit "ai" sample mode and are never a silent
+ * fallback for live discovery.
  *
  * Real per-source logic lives in the integrations/ folder:
  *   - integrations/apolloIntegration.js
@@ -21,7 +16,6 @@
 
 import { openai } from "../lib/openai.js";
 import * as apollo   from "./integrations/apolloIntegration.js";
-import * as clearbit from "./integrations/clearbitIntegration.js";
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -35,40 +29,34 @@ import * as clearbit from "./integrations/clearbitIntegration.js";
  * @param {string}  [criteria.location="United States"] - Geographic location
  * @param {string}  [criteria.companySize="1-50 employees"] - Company size range
  * @param {number}  [criteria.count=5]                 - Number of leads to return
- * @param {string}  [criteria.source="auto"]           - "auto"|"apollo"|"clearbit"|"ai"
+ * @param {string}  [criteria.source="apollo"|"ai"]   - Select live records or clearly fictional sample data
  * @returns {Promise<Array<{name,email,company,source,notes}>>}
  */
+export function getDiscoverySources() {
+  return {
+    apollo: Boolean(process.env.APOLLO_API_KEY),
+    aiSample: true,
+  };
+}
+
 export async function discoverLeads(criteria) {
   const {
     industry    = "technology",
     location    = "United States",
     companySize = "1-50 employees",
     count       = 5,
-    source      = "auto",
+    source      = "apollo",
   } = criteria;
 
-  // Attempt Apollo if the key is present and not explicitly bypassed
-  if ((source === "auto" || source === "apollo") && process.env.APOLLO_API_KEY) {
-    try {
-      return await discoverFromApollo({ industry, location, companySize, count });
-    } catch (err) {
-      console.error("[discoverLeads] Apollo failed:", err.message);
-      if (source === "apollo") throw err; // caller explicitly wanted Apollo → propagate
-    }
+  if (source === "ai") return discoverFromAI({ industry, location, companySize, count });
+  if (source !== "apollo") throw new Error("Choose Apollo live search or AI sample mode.");
+  if (!getDiscoverySources().apollo) {
+    const error = new Error("Apollo is not configured. Add Apollo credentials in the backend environment, or explicitly choose AI sample mode.");
+    error.status = 503;
+    throw error;
   }
 
-  // Attempt Clearbit if the key is present and not explicitly bypassed
-  if ((source === "auto" || source === "clearbit") && process.env.CLEARBIT_API_KEY) {
-    try {
-      return await discoverFromClearbit({ count });
-    } catch (err) {
-      console.error("[discoverLeads] Clearbit failed:", err.message);
-      if (source === "clearbit") throw err;
-    }
-  }
-
-  // AI fallback — always available
-  return await discoverFromAI({ industry, location, companySize, count });
+  return discoverFromApollo({ industry, location, companySize, count });
 }
 
 // ---------------------------------------------------------------------------
@@ -97,22 +85,7 @@ async function discoverFromApollo({ industry, location, companySize, count }) {
 }
 
 /**
- * Discover leads via the Clearbit Prospector integration.
- */
-async function discoverFromClearbit({ count }) {
-  const result = await clearbit.prospectorSearch({
-    role:      ["ceo", "cto", "founder", "vp"],
-    seniority: ["executive", "director"],
-    perPage:   count,
-  });
-
-  return result.results.slice(0, count);
-}
-
-/**
- * AI fallback — generates realistic but fictional leads using GPT-4o-mini.
- * Used when no real lead-source API keys are configured, or when
- * `source: "ai"` is explicitly requested.
+ * Generates clearly fictional sample records using GPT-4o-mini.
  *
  * ⚠️  All names, emails, and companies are fictional and for demo purposes only.
  */
@@ -127,7 +100,7 @@ Target criteria:
 For each lead include:
 1. Company name (realistic but fictional)
 2. Contact person name (realistic but fictional)
-3. Email (format: firstname.lastname@company.com)
+3. Use the placeholder email "contact@example.invalid" (never invent a deliverable address)
 4. Job title (decision-maker level: CEO, CTO, Marketing Director, etc.)
 5. Company description (one sentence)
 6. Pain point — why they might need web dev services
@@ -137,12 +110,12 @@ Respond as strict JSON object:
   "leads": [
     {
       "name": "Person Name",
-      "email": "person@company.com",
+      "email": "contact@example.invalid",
       "company": "Company Name",
       "jobTitle": "Title",
       "companyDescription": "Brief description",
       "painPoint": "Their potential need",
-      "source": "AI Discovery - ${industry}"
+      "source": "AI sample (fictional) - ${industry}"
     }
   ]
 }`;
@@ -158,11 +131,11 @@ Respond as strict JSON object:
   const parsed = JSON.parse(raw);
   const leads  = parsed.leads ?? (Array.isArray(parsed) ? parsed : []);
 
-  return leads.map((lead) => ({
+  return leads.map((lead, index) => ({
     name:    lead.name,
-    email:   lead.email,
+    email:   `sample-${index + 1}@example.invalid`,
     company: lead.company,
-    source:  lead.source ?? `AI Discovery - ${industry}`,
+    source:  `AI sample (fictional) - ${industry}`,
     notes:   [
       `Job Title: ${lead.jobTitle}`,
       `Company: ${lead.companyDescription}`,

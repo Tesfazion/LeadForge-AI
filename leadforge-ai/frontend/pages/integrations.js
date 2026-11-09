@@ -1,93 +1,36 @@
 /**
  * Integrations page
  *
- * Manages OAuth platform connections (Gmail, LinkedIn, Instagram, GitHub)
- * and shows the status of API-key-based lead source integrations
- * (Apollo, Hunter, Clearbit).
+ * Shows OAuth setup status and the availability of the Apollo discovery source.
  *
  * Theme is handled by Layout — no local theme toggle needed here.
  * All HTTP calls go through the shared api lib.
  */
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import useSWR from "swr";
 import { api } from "../lib/api";
 import { showToast } from "../components/Toast";
 
-// Default provider list used as fallback while providers load from the API
-const DEFAULT_PROVIDERS = [
-  {
-    id: "gmail",
-    name: "Gmail",
-    icon: "📧",
-    description: "Access your email inbox, send emails, and manage conversations",
-    features: ["Read emails", "Send emails", "Email analysis", "Auto lead creation"],
-    hasSharedApp: false,
-  },
-  {
-    id: "linkedin",
-    name: "LinkedIn",
-    icon: "💼",
-    description: "Connect your professional network and access profile data",
-    features: ["Profile data", "Connections", "Posts", "Company info"],
-    hasSharedApp: false,
-  },
-  {
-    id: "instagram",
-    name: "Instagram",
-    icon: "📸",
-    description: "Access your Instagram profile, posts, and insights",
-    features: ["Profile data", "Posts", "Insights", "Media"],
-    hasSharedApp: false,
-  },
-  {
-    id: "github",
-    name: "GitHub",
-    icon: "💻",
-    description: "Access your repositories, activity, and developer profile",
-    features: ["Repositories", "Activity", "Profile", "Organizations"],
-    hasSharedApp: false,
-  },
-];
-
-// Static API-key integrations (no OAuth flow)
+// Only Apollo is currently wired into the live prospect-search workflow.
 const API_INTEGRATIONS = [
   {
     name: "Apollo.io",
     icon: "🎯",
-    description: "B2B database with 265M+ contacts and 60M+ companies",
-    features: ["Contact search", "Company data", "Email verification"],
-    envKey: "APOLLO_API_KEY",
-  },
-  {
-    name: "Hunter.io",
-    icon: "🔍",
-    description: "Find and verify professional email addresses",
-    features: ["Email finder", "Domain search", "Bulk tasks"],
-    envKey: "HUNTER_API_KEY",
-  },
-  {
-    name: "Clearbit",
-    icon: "💎",
-    description: "Real-time business intelligence and lead enrichment",
-    features: ["Enrichment", "Prospector", "Lead scoring"],
-    envKey: "CLEARBIT_API_KEY",
+    description: "Provides real prospect records for the Lead Discovery workflow.",
   },
 ];
 
 export default function IntegrationsPage() {
-  const [busy,           setBusy]           = useState(false);
-  const [expandedId,     setExpandedId]     = useState(null);
-  const [platformData,   setPlatformData]   = useState({});
-
-  // Fetch providers, connection status, and connected accounts via SWR
-  const { data: providers }       = useSWR("oauth-providers",  api.getOAuthProviders);
+  // Fetch configured OAuth providers, connection status, and connected accounts.
+  const { data: providers, error: providersError } = useSWR("oauth-providers", api.getOAuthProviders);
   const { data: connectionStatus, mutate: mutateStatus }
                                   = useSWR("oauth-status",     api.getConnectionStatus);
   const { data: accounts,         mutate: mutateAccounts }
                                   = useSWR("oauth-accounts",   api.getConnectedAccounts);
   // API integration configured-status comes from the server
   const { data: apiConfig }       = useSWR("oauth-config",     api.getOAuthConfig);
+  const { data: discoverySources } = useSWR("discovery-sources", api.getDiscoverySources);
 
   // Handle OAuth callback result in the URL query string
   useEffect(() => {
@@ -109,8 +52,8 @@ export default function IntegrationsPage() {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Use live providers once loaded, or fall back to the static default list
-  const oauthProviders = (providers && providers.length > 0) ? providers : DEFAULT_PROVIDERS;
+  // No fallback providers: show only what the backend reports as configured.
+  const oauthProviders = providers ?? [];
 
   function getAccountInfo(platformId) {
     return accounts?.find((a) => a.platform === platformId);
@@ -118,54 +61,6 @@ export default function IntegrationsPage() {
 
   function isConnected(platformId) {
     return !!connectionStatus?.[platformId]?.connected;
-  }
-
-  async function handleConnect(platformId) {
-    showToast(`Redirecting to ${platformId} authorization…`, "info");
-    setBusy(true);
-    try {
-      await api.connectPlatform(platformId);
-    } catch (err) {
-      showToast(`Could not connect ${platformId}: ${err.message}`, "error");
-      setBusy(false);
-    }
-  }
-
-  async function handleDisconnect(platformId) {
-    if (!window.confirm(`Disconnect ${platformId}?`)) return;
-    setBusy(true);
-    try {
-      await api.disconnectPlatform(platformId);
-      showToast(`Disconnected ${platformId}`, "success");
-      mutateStatus();
-      mutateAccounts();
-    } catch (err) {
-      showToast(`Failed to disconnect: ${err.message}`, "error");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handleLoadData(platformId) {
-    setBusy(true);
-    try {
-      showToast(`Fetching ${platformId} data…`, "info");
-      const data = await api.getPlatformData(platformId);
-      setPlatformData((prev) => ({ ...prev, [platformId]: data }));
-      setExpandedId(platformId);
-      showToast(`Loaded ${platformId} data`, "success");
-    } catch (err) {
-      showToast(`Failed to load data: ${err.message}`, "error");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  // Check whether a given API-key integration has been configured on the server
-  function isApiConfigured(integration) {
-    return apiConfig?.some(
-      (c) => c.platform?.toUpperCase() === integration.envKey.replace("_API_KEY", "") && c.configured
-    );
   }
 
   return (
@@ -176,7 +71,7 @@ export default function IntegrationsPage() {
           <div>
             <h1 className="page-title">Integrations</h1>
             <p className="page-description">
-              Connect your accounts and configure lead source APIs
+                See which provider connections are actually ready for the LeadForge workflow.
             </p>
           </div>
         </div>
@@ -187,16 +82,22 @@ export default function IntegrationsPage() {
       {/* ------------------------------------------------------------------ */}
       <section className="mb-24">
         <div className="section-heading">
-          <h2>Connected accounts</h2>
-          <p>Authenticate once and let the agents work with your data securely.</p>
+          <h2>Account connections · preview</h2>
+          <p>OAuth tokens are currently held in backend process memory, not persisted in the workspace database.</p>
         </div>
 
+        <div className="banner banner-warning" role="note" style={{ marginBottom: "20px" }}>
+          Account connections reset when the backend restarts and are not production-ready. Connect and disconnect actions are disabled until encrypted, durable workspace storage is implemented.
+        </div>
+
+        {providersError && <div className="banner banner-error" role="alert">Could not load the provider list.</div>}
+        {!providers && !providersError && <div className="card" role="status">Loading configured OAuth providers…</div>}
+        {providers && providers.length === 0 && <div className="card">No OAuth providers are configured.</div>}
         <div className="grid-2">
           {oauthProviders.map((provider) => {
             const connected   = isConnected(provider.id);
             const accountInfo = getAccountInfo(provider.id);
-            const data        = platformData[provider.id];
-            const expanded    = expandedId === provider.id;
+            const configured = apiConfig?.find((item) => item.platform === provider.id)?.configured;
 
             return (
               <div
@@ -229,8 +130,8 @@ export default function IntegrationsPage() {
                           </span>
                         )}
                       </div>
-                      <span className={`badge ${connected ? "badge-success" : "badge-gray"}`}>
-                        {connected ? "Connected" : "Not connected"}
+                      <span className={`badge ${connected ? "badge-warning" : "badge-gray"}`}>
+                        {connected ? "Temporary connection" : "Setup only"}
                       </span>
                     </div>
 
@@ -238,26 +139,6 @@ export default function IntegrationsPage() {
                       {provider.description}
                     </p>
 
-                    {/* Feature tags */}
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "16px" }}>
-                      {provider.features?.map((f) => (
-                        <span
-                          key={f}
-                          style={{
-                            fontSize: "11px",
-                            padding: "3px 10px",
-                            background: "var(--primary-50)",
-                            border: "1px solid var(--primary-100)",
-                            borderRadius: "var(--radius-sm)",
-                            color: "var(--primary-700)",
-                          }}
-                        >
-                          {f}
-                        </span>
-                      ))}
-                    </div>
-
-                    {/* Connected account info */}
                     {connected && accountInfo && (
                       <div style={{
                         padding: "10px 14px",
@@ -282,55 +163,11 @@ export default function IntegrationsPage() {
                       </div>
                     )}
 
-                    {/* Action buttons */}
-                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                      {!connected ? (
-                        <button
-                          className="btn btn-primary btn-sm"
-                          onClick={() => handleConnect(provider.id)}
-                          disabled={busy}
-                        >
-                          {provider.hasSharedApp ? "Connect now" : "Connect"}
-                        </button>
-                      ) : (
-                        <>
-                          <button
-                            className="btn btn-secondary btn-sm"
-                            onClick={() => handleLoadData(provider.id)}
-                            disabled={busy}
-                          >
-                            Load data
-                          </button>
-                          <button
-                            className="btn btn-sm btn-danger-outline"
-                            onClick={() => handleDisconnect(provider.id)}
-                            disabled={busy}
-                          >
-                            Disconnect
-                          </button>
-                        </>
-                      )}
-                    </div>
-
-                    {/* Expanded data preview */}
-                    {expanded && data && (
-                      <pre style={{
-                        marginTop: "16px",
-                        padding: "16px",
-                        background: "var(--bg-tertiary)",
-                        border: "1px solid var(--border)",
-                        borderRadius: "var(--radius)",
-                        fontSize: "12px",
-                        fontFamily: "monospace",
-                        whiteSpace: "pre-wrap",
-                        wordBreak: "break-word",
-                        maxHeight: "300px",
-                        overflowY: "auto",
-                        color: "var(--text-secondary)",
-                      }}>
-                        {JSON.stringify(data, null, 2)}
-                      </pre>
-                    )}
+                    <p className="settings-muted" style={{ margin: 0 }}>
+                      {configured
+                        ? "Provider credentials are present, but this account connection is not durably stored."
+                        : "Provider credentials are not configured on the backend."}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -350,7 +187,7 @@ export default function IntegrationsPage() {
 
         <div className="grid-3">
           {API_INTEGRATIONS.map((integration) => {
-            const configured = isApiConfigured(integration);
+            const configured = Boolean(discoverySources?.apollo);
             return (
               <div key={integration.name} className="card">
                 <div className="logo-tile logo-tile-sm" style={{ marginBottom: "12px" }} aria-hidden="true">
@@ -363,33 +200,19 @@ export default function IntegrationsPage() {
                   {integration.description}
                 </p>
 
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "16px" }}>
-                  {integration.features.map((f) => (
-                    <span
-                      key={f}
-                      style={{
-                        fontSize: "11px",
-                        padding: "3px 8px",
-                        background: "var(--primary-50)",
-                        borderRadius: "var(--radius-sm)",
-                        color: "var(--primary-700)",
-                      }}
-                    >
-                      {f}
-                    </span>
-                  ))}
-                </div>
-
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <span className={`badge ${configured ? "badge-success" : "badge-gray"}`}>
-                    {configured ? "Configured" : "Not configured"}
+                    {discoverySources ? (configured ? "Credentials configured" : "Not configured") : "Checking"}
                   </span>
                   {!configured && (
                     <span style={{ fontSize: "12px", color: "var(--text-tertiary)" }}>
-                      Set {integration.envKey} in .env
+                      Configure Apollo credentials on the backend
                     </span>
                   )}
                 </div>
+                <p className="settings-muted" style={{ marginTop: "12px" }}>
+                  {integration.description} {configured ? "New search results can be reviewed and saved to the pipeline." : "Use AI sample mode only to preview the workflow; sample contacts cannot be saved or contacted."}
+                </p>
               </div>
             );
           })}

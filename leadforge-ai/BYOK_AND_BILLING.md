@@ -67,6 +67,17 @@ fallback. If neither key exists, AI requests return a configuration error.
 If an OpenRouter key was ever committed in project documentation or code,
 revoke it and issue a replacement before using the integration.
 
+## Outbound email
+
+Approving an outreach draft sends it only when the backend has Gmail OAuth2
+credentials (`GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `GMAIL_REFRESH_TOKEN`,
+and `GMAIL_SENDER_EMAIL`) or SMTP credentials (`SMTP_USER` and `SMTP_PASS`).
+Without either provider, the API returns a configuration error and keeps the
+draft pending; it does not pretend a test email was delivered. These settings
+are currently server-wide rather than workspace-specific, so configure them
+only for a single-tenant deployment. Inbound inbox synchronization is not
+implemented.
+
 Generate a separate, persistent random secret of at least 32 characters for
 `OAUTH_STATE_SECRET`. It signs OAuth state so callbacks cannot select another
 workspace. The secret and provider credentials must only be configured in

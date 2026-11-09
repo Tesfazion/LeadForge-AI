@@ -124,6 +124,10 @@ buildRouter.post("/:projectId", async (req, res, next) => {
       message: "Website generated successfully. Review the preview before deploying."
     });
   } catch (err) {
+    await prisma.project.update({
+      where: { id: req.params.projectId },
+      data: { status: "BUILD_FAILED", buildLog: String(err.message || err) },
+    });
     activity({
       action: "building_site",
       projectId: req.params.projectId,
@@ -142,8 +146,8 @@ buildRouter.post("/:projectId/deploy", async (req, res, next) => {
   try {
     const project = await prisma.project.findUnique({ where: { id: req.params.projectId } });
     if (!project) return res.status(404).json({ error: "Project not found" });
-    if (project.status !== "PREVIEW_READY") {
-      return res.status(400).json({ error: "Project must be in PREVIEW_READY status. Build the site first." });
+    if (!["PREVIEW_READY", "DEPLOY_FAILED"].includes(project.status)) {
+      return res.status(400).json({ error: "Project must have a generated preview before it can be deployed." });
     }
 
     activity({
@@ -156,13 +160,11 @@ buildRouter.post("/:projectId/deploy", async (req, res, next) => {
 
     await prisma.project.update({ where: { id: project.id }, data: { status: "DEPLOYING" } });
 
-    // Read files from disk (from the path written during the build phase)
-    const localPath = projectDiskPath(project.id);
-    const files = await readProjectFromDisk(localPath);
-
-    // Deploy to Vercel
     let deployResult;
     try {
+      // Read the generated files and deploy them as one retryable operation.
+      const localPath = projectDiskPath(project.id);
+      const files = await readProjectFromDisk(localPath);
       deployResult = await deployToVercel(project.name, files);
     } catch (deployErr) {
       const failed = await prisma.project.update({
@@ -223,14 +225,26 @@ buildRouter.get("/:projectId/preview", async (req, res, next) => {
 
     try {
       const files = await readProjectFromDisk(localPath);
-      res.json({ 
+      res.json({
         project, 
         files,
         localPath,
-        canDeploy: project.status === "PREVIEW_READY"
+        canDeploy: ["PREVIEW_READY", "DEPLOY_FAILED"].includes(project.status)
       });
     } catch (err) {
-      res.status(404).json({ error: "Preview not found. Build the project first." });
+      if (err.code === "ENOENT") {
+        if (["PREVIEW_READY", "DEPLOY_FAILED"].includes(project.status)) {
+          await prisma.project.update({
+            where: { id: project.id },
+            data: {
+              status: "BUILD_FAILED",
+              buildLog: "Generated files are no longer available on the backend filesystem. Rebuild the website files.",
+            },
+          });
+        }
+        return res.status(404).json({ error: "Preview not found. Build the project first." });
+      }
+      next(err);
     }
   } catch (err) {
     next(err);

@@ -1,8 +1,8 @@
 /**
  * Discovery route
  *
- * Runs the Lead Discovery Agent against real APIs (Apollo, Clearbit) or an
- * AI fallback to generate potential leads matching the given criteria.
+ * Searches Apollo for real prospects or generates explicitly fictional AI
+ * sample records for preview.
  * Optionally auto-inserts discovered leads into the database (skipping
  * duplicates by email).
  *
@@ -13,9 +13,13 @@
 
 import { Router } from "express";
 import { prisma } from "../lib/prisma.js";
-import { discoverLeads } from "../agents/leadDiscoveryAgent.js";
+import { discoverLeads, getDiscoverySources } from "../agents/leadDiscoveryAgent.js";
 
 export const discoveryRouter = Router();
+
+discoveryRouter.get("/sources", (_req, res) => {
+  res.json(getDiscoverySources());
+});
 
 /**
  * POST /discovery/search
@@ -31,55 +35,56 @@ discoveryRouter.post("/search", async (req, res, next) => {
       companySize = "1-50 employees",
       count = 5,
       autoAdd = false,
+      source = "apollo",
     } = req.body;
 
-    // Discover leads
+    if (!["apollo", "ai"].includes(source)) {
+      return res.status(400).json({ error: "Choose Apollo live search or AI sample mode." });
+    }
+    if (source === "ai" && autoAdd) {
+      return res.status(400).json({ error: "AI sample records are fictional and cannot be saved to the contactable lead pipeline." });
+    }
+
+    const requestedCount = Number.parseInt(count, 10);
+    if (!Number.isInteger(requestedCount) || requestedCount < 1 || requestedCount > 20) {
+      return res.status(400).json({ error: "count must be a whole number between 1 and 20." });
+    }
+
     const leads = await discoverLeads({
       industry,
       location,
       companySize,
-      count: parseInt(count, 10) || 5,
+      count: requestedCount,
+      source,
     });
 
-    // Optionally add them to database
+    let added = 0;
     if (autoAdd) {
-      const created = [];
       for (const lead of leads) {
-        try {
-          // Check if email already exists
-          const existing = await prisma.lead.findFirst({
-            where: { email: lead.email },
-          });
-
-          if (!existing) {
-            const newLead = await prisma.lead.create({
-              data: {
-                name: lead.name,
-                email: lead.email,
-                company: lead.company,
-                source: lead.source,
-                notes: lead.notes,
-                status: "NEW",
-              },
-            });
-            created.push(newLead);
-          }
-        } catch (err) {
-          console.error(`Failed to create lead ${lead.email}:`, err.message);
-        }
+        if (!lead.email) continue;
+        const existing = await prisma.lead.findFirst({ where: { email: lead.email } });
+        if (existing) continue;
+        await prisma.lead.create({
+          data: {
+            name: lead.name,
+            email: lead.email,
+            company: lead.company,
+            source: lead.source,
+            notes: lead.notes,
+            status: "NEW",
+          },
+        });
+        added += 1;
       }
-
-      res.status(201).json({
-        discovered: leads.length,
-        added: created.length,
-        leads: created,
-      });
-    } else {
-      res.json({
-        discovered: leads.length,
-        leads,
-      });
     }
+
+    res.status(autoAdd ? 201 : 200).json({
+      discovered: leads.length,
+      added,
+      source,
+      isSampleData: source === "ai",
+      leads,
+    });
   } catch (err) {
     next(err);
   }

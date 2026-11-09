@@ -177,17 +177,10 @@ Requirements:
     temperature: 0.5,
   });
 
-  const componentCode = completion.choices[0]?.message?.content?.trim() ?? 
-    `export default function HomePage() {
-  return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-24">
-      <h1 className="text-4xl font-bold">Coming Soon</h1>
-      <p className="mt-4 text-lg text-gray-600">
-        ${requirements.brand?.name || "Your site"} is under construction
-      </p>
-    </main>
-  );
-}`;
+  const componentCode = completion.choices[0]?.message?.content?.trim();
+  if (!componentCode) {
+    throw new Error("The AI provider returned an empty website component. Retry the build.");
+  }
 
   files["app/page.tsx"] = componentCode;
 

@@ -54,6 +54,7 @@ oauthRouter.get("/config", (req, res) => {
   const config = Object.entries(oauthConfig).map(([platform, details]) => ({
     platform,
     ...details,
+    persistence: "process-memory",
     configured: !!(
       process.env[`${platform.toUpperCase()}_CLIENT_ID`] &&
       process.env[`${platform.toUpperCase()}_CLIENT_SECRET`]

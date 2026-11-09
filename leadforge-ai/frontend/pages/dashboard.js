@@ -102,10 +102,43 @@ export default function DashboardPage() {
         action: "Review drafts",
         icon: "mail",
       }
-    : {
+    : dashboard?.replyReadyLead
+      ? {
+          eyebrow: "A prospect replied",
+          title: dashboard.replyReadyLead.name || dashboard.replyReadyLead.email,
+          detail: "Continue the conversation and decide whether their needs are ready to become a project.",
+          href: `/leads/${dashboard.replyReadyLead.id}`,
+          action: "Open conversation",
+          icon: "message",
+        }
+      : dashboard?.actionableProject
+        ? {
+            eyebrow: "Website project",
+            title: dashboard.actionableProject.name,
+            detail: dashboard.actionableProject.status === "PREVIEW_READY" || dashboard.actionableProject.status === "DEPLOY_FAILED"
+              ? "Review the generated site and deploy it, or retry the previous deployment."
+              : "Generate website project files from the captured requirements.",
+            href: dashboard.actionableProject.status === "PREVIEW_READY" || dashboard.actionableProject.status === "DEPLOY_FAILED"
+              ? `/preview/${dashboard.actionableProject.id}`
+              : "/projects",
+            action: dashboard.actionableProject.status === "PREVIEW_READY" || dashboard.actionableProject.status === "DEPLOY_FAILED"
+              ? "Review website"
+              : "Build website",
+            icon: "rocket",
+          }
+        : dashboard?.statusCounts.NEW
+          ? {
+              eyebrow: "Next pipeline step",
+              title: `${dashboard.statusCounts.NEW} new prospect${dashboard.statusCounts.NEW === 1 ? "" : "s"} to engage`,
+              detail: "Review a lead and draft personalized outreach when you are ready.",
+              href: "/leads",
+              action: "Open pipeline",
+              icon: "users",
+            }
+          : {
         eyebrow: "Keep momentum",
         title: dashboard?.total ? "Find your next great-fit prospects" : "Bring your first prospects into LeadForge",
-        detail: "Build a steady, qualified pipeline with a focused search.",
+        detail: "Discover real prospects through a configured provider, or preview the workflow with clearly marked sample data.",
         href: "/discover",
         action: "Discover leads",
         icon: "search",
@@ -150,8 +183,8 @@ export default function DashboardPage() {
       <header className="dashboard-heading">
         <div>
           <span className="dashboard-kicker">WORKSPACE OVERVIEW</span>
-          <h1 className="dashboard-title">Your pipeline, at a glance.</h1>
-          <p className="dashboard-subtitle">A clear view of momentum, conversations, and what deserves your attention.</p>
+          <h1 className="dashboard-title">From first prospect to live website.</h1>
+          <p className="dashboard-subtitle">Move through discovery, human-reviewed outreach, real conversations, and customer website delivery.</p>
         </div>
         <div className="dashboard-heading-actions">
           <span className="dashboard-date"><span className="dashboard-live-dot" />{greeting}</span>
@@ -172,7 +205,7 @@ export default function DashboardPage() {
           <div className="dashboard-hero-links">
             <Link href="/leads">Explore your pipeline <span aria-hidden="true">→</span></Link>
             <span className="dashboard-hero-divider" aria-hidden="true" />
-            <Link href="/agents">Meet your AI agents <span aria-hidden="true">→</span></Link>
+            <Link href="/projects">See website projects <span aria-hidden="true">→</span></Link>
           </div>
         </div>
         <div className="dashboard-hero-aside" aria-label="Pipeline performance">
@@ -319,9 +352,9 @@ export default function DashboardPage() {
                   <span>Continue conversations</span>
                   <Icon name="arrow-right" size={15} />
                 </Link>
-                <Link href="/agents">
+                <Link href="/projects">
                   <span className="shortcut-dot shortcut-dot-blue" />
-                  <span>Check your AI team</span>
+                  <span>Move a qualified lead to delivery</span>
                   <Icon name="arrow-right" size={15} />
                 </Link>
               </div>
@@ -384,10 +417,10 @@ export default function DashboardPage() {
         <section className="dashboard-panel dashboard-activity-panel" aria-labelledby="activity-title">
           <div className="dashboard-panel-heading">
             <div>
-              <span className="dashboard-section-eyebrow">THE TEAM AT WORK</span>
-              <h2 id="activity-title">Recent activity</h2>
+              <span className="dashboard-section-eyebrow">WORKFLOW TRACE</span>
+              <h2 id="activity-title">Recent automation activity</h2>
             </div>
-            <Link href="/agents" className="dashboard-text-link">Agent activity <span aria-hidden="true">→</span></Link>
+            <Link href="/agents" className="dashboard-text-link">View activity <span aria-hidden="true">→</span></Link>
           </div>
           {activityError ? (
             <div className="dashboard-activity-empty" role="status">
@@ -399,7 +432,7 @@ export default function DashboardPage() {
           ) : (
             <div className="dashboard-activity-empty">
               <span className="activity-empty-mark"><Icon name="robot" size={18} /></span>
-              <span><strong>Your AI team is ready</strong><small>Activity will appear here as your pipeline moves.</small></span>
+              <span><strong>Automation runs when you take an action</strong><small>Draft outreach, process a reply, extract requirements, or build a site to see its trace here.</small></span>
             </div>
           )}
         </section>

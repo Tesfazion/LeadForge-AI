@@ -3,28 +3,12 @@
  * Real B2B contact and company data
  * Docs: https://apolloio.github.io/apollo-api-docs/
  * 
- * Supports both:
- * - API Key authentication (APOLLO_API_KEY)
- * - OAuth authentication (APOLLO_CLIENT_ID + APOLLO_CLIENT_SECRET)
+ * Uses an Apollo API key (APOLLO_API_KEY).
  */
 
 // Get authentication headers based on available credentials
 function getAuthHeaders() {
   const apiKey = process.env.APOLLO_API_KEY;
-  const clientId = process.env.APOLLO_CLIENT_ID;
-  const clientSecret = process.env.APOLLO_CLIENT_SECRET;
-
-  // Prefer OAuth if credentials are available
-  if (clientId && clientSecret) {
-    const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
-    return {
-      "Content-Type": "application/json",
-      "Cache-Control": "no-cache",
-      "Authorization": `Basic ${basicAuth}`,
-    };
-  }
-
-  // Fall back to API Key
   if (apiKey) {
     return {
       "Content-Type": "application/json",
@@ -33,7 +17,7 @@ function getAuthHeaders() {
     };
   }
 
-  throw new Error("Apollo.io credentials not configured. Set either APOLLO_API_KEY or APOLLO_CLIENT_ID + APOLLO_CLIENT_SECRET in .env file");
+  throw new Error("Apollo.io is not configured. Set APOLLO_API_KEY in the backend environment.");
 }
 
 export async function searchPeople(criteria) {

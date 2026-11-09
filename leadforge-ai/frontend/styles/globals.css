@@ -2637,6 +2637,8 @@ a.card { display: block; color: inherit; }
 @media (max-width: 640px) {
   .landing-ribbon-inner { justify-content: center; }
   .landing-ribbon a { display: none; }
+  .landing-nav-inner { gap: 8px; }
+  .landing-nav-actions a:first-child { display: none; }
   .landing-hero { padding: 64px 0 48px; }
   .landing-hero-title { font-size: 32px; }
   .landing-section { padding: 64px 0; }

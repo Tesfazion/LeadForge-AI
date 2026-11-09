@@ -1,8 +1,8 @@
 /**
  * Website preview page  (/preview/[projectId])
  *
- * Review the files the Developer Agent generated for a project, then deploy
- * the site to Vercel.
+ * Review the generated source files, then deploy the site to Vercel. A visual
+ * website preview is only available after deployment.
  *
  * Three view modes:
  *   • files  — file tree + source of the selected file
@@ -136,10 +136,10 @@ export default function PreviewPage() {
       <div className="page-header-row">
         <div>
           <h1 className="page-title">
-            {project ? `Preview: ${project.name}` : "Website Preview"}
+            {project ? `Generated files: ${project.name}` : "Website project files"}
           </h1>
           <p className="page-description">
-            Review the generated website before deploying
+            Review the generated source files; the visual preview is available after deployment.
           </p>
         </div>
         {project && (
@@ -151,10 +151,10 @@ export default function PreviewPage() {
             <button
               className="btn btn-primary"
               onClick={handleDeploy}
-              disabled={deploying || project.status !== "PREVIEW_READY"}
+              disabled={deploying || !["PREVIEW_READY", "DEPLOY_FAILED"].includes(project.status)}
             >
               <Icon name="rocket" size={16} />
-              {deploying ? "Deploying…" : "Deploy to Vercel"}
+              {deploying ? "Deploying…" : project.status === "DEPLOY_FAILED" ? "Retry deployment" : "Deploy to Vercel"}
             </button>
           </div>
         )}
@@ -179,6 +179,9 @@ export default function PreviewPage() {
         {header}
         <div className="banner banner-error">
           {loadError} Check that the backend is running, then reload.
+          <div style={{ marginTop: "12px" }}>
+            <Link href="/projects" className="text-link">Return to projects to rebuild missing files</Link>
+          </div>
         </div>
       </>
     );

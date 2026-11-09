@@ -4,7 +4,7 @@
  * An official Sunshine Tech Solution product page (same family as
  * sunshinetechsolution.vercel.app and ideaforge-ai-omega.vercel.app):
  *   - Bright corporate hero with orange CTA pair
- *   - Trust stats row
+ *   - Product guardrails
  *   - Feature grid (what the platform does)
  *   - How it works (numbered steps)
  *   - Final CTA + professional dark footer
@@ -18,67 +18,67 @@ const FEATURES = [
   {
     tag: "DISCOVERY",
     title: "AI Lead Discovery",
-    text: "Find high-intent prospects automatically — Apollo, Hunter and web signals combined into one qualified pipeline.",
+    text: "Search provider-sourced prospect records with Apollo, or add contacts you already know. Fictional AI samples are clearly separated from real contacts.",
   },
   {
     tag: "OUTREACH",
-    title: "Automated Outreach",
-    text: "Personalized email sequences written by AI, sent on schedule, with replies routed straight to your inbox.",
+    title: "Human-reviewed Outreach",
+    text: "Generate a personalized email draft for a lead, review it, and approve before the configured mail provider sends it.",
   },
   {
     tag: "AGENTS",
-    title: "Autonomous Agents",
-    text: "Research, engage, qualify and hand over — agents work your pipeline around the clock so you don't have to.",
+    title: "On-demand AI assistance",
+    text: "Run drafting, conversation analysis, requirements extraction, and website generation when you choose each workflow action.",
   },
   {
     tag: "CONVERSATIONS",
-    title: "Unified Conversations",
-    text: "Every reply, thread and touchpoint in one professional inbox built for fast, organized follow-up.",
+    title: "Conversation workspace",
+    text: "Keep conversation records with each lead. Real inbox synchronization is not yet available; test replies are labeled as simulations.",
   },
   {
     tag: "ANALYTICS",
-    title: "Pipeline Analytics",
-    text: "Conversion rates, reply rates and source performance — clear reporting your team can act on.",
+    title: "Pipeline analytics",
+    text: "Review lead stages, response activity, and acquisition sources using the records in your workspace.",
   },
   {
     tag: "DEPLOYMENT",
-    title: "Lead-to-Website Builds",
-    text: "Turn a signed lead into a live, branded website automatically — the final step of the funnel, automated.",
+    title: "Website delivery",
+    text: "Extract a structured brief, generate the project files, review the source, then deploy to Vercel when ready.",
   },
 ];
 
 const STEPS = [
   {
     step: "STEP 01",
-    label: "~2 minutes",
-    title: "Connect your sources",
-    text: "Link your lead sources and tools. LeadForge starts discovering and organizing prospects immediately.",
+    label: "Manual or provider sourced",
+    title: "Bring prospects into your pipeline",
+    text: "Add contacts yourself or search real prospect records through a configured Apollo account.",
   },
   {
     step: "STEP 02",
-    label: "~30 seconds per lead",
-    title: "AI qualifies every lead",
-    text: "Each prospect is scored and enriched so your team focuses only on leads worth pursuing.",
+    label: "Human reviewed",
+    title: "Prepare outreach",
+    text: "Ask AI to draft an individual message, then review and explicitly approve it before sending.",
   },
   {
     step: "STEP 03",
-    label: "On your schedule",
-    title: "Outreach goes out",
-    text: "Personalized sequences are drafted and sent automatically, with every reply routed to your inbox.",
+    label: "Inbox sync not available",
+    title: "Manage the conversation",
+    text: "Keep messages on the lead record. Entered test replies are simulations, not messages received from a real mailbox.",
   },
   {
     step: "STEP 04",
-    label: "Continuous",
-    title: "Close and deliver",
-    text: "Track deals to the finish line — then let the platform deploy the client's website automatically.",
+    label: "Review files before deploy",
+    title: "Turn requirements into a website",
+    text: "Extract requirements, generate project files, review the source, and deploy to Vercel when configured.",
   },
 ];
 
-const STATS = [
-  { value: "10k+", label: "Leads processed" },
-  { value: "94%", label: "Outreach deliverability" },
-  { value: "24/7", label: "Agent coverage" },
-  { value: "4 min", label: "Avg. lead-to-site build" },
+const PRINCIPLES = [
+  { value: "Human review", label: "before outreach is sent" },
+  { value: "Workspace scoped", label: "leads and project data" },
+  { value: "Review first", label: "inspect generated files before deployment" },
+  { value: "Samples labeled", label: "fictional data stays out of pipeline" },
 ];
 
 export default function LandingPage() {
@@ -115,7 +115,7 @@ export default function LandingPage() {
           <nav className="landing-links" aria-label="Main navigation">
             <a href="#features">Features</a>
             <a href="#how-it-works">How it works</a>
-            <a href="#stats">Why LeadForge</a>
+            <a href="#workflow-principles">Why LeadForge</a>
           </nav>
 
           <div className="landing-nav-actions">
@@ -134,12 +134,11 @@ export default function LandingPage() {
         <div className="landing-container">
           <span className="landing-eyebrow">SUNSHINE TECH SOLUTION</span>
           <h1 className="landing-hero-title">
-            Turn leads into <span className="text-gradient-brand">revenue</span> —
-            automatically.
+            From prospect to <span className="text-gradient-brand">customer-ready</span> website.
           </h1>
           <p className="landing-hero-text">
-            LeadForge AI discovers, qualifies and engages your prospects end-to-end —
-            from first touch to a live website — while your team focuses on closing.
+            LeadForge brings prospect records, human-reviewed outreach, conversation workflows,
+            and website delivery into one workspace.
           </p>
           <div className="landing-hero-actions">
             <Link href="/dashboard" className="btn btn-primary btn-lg">
@@ -150,7 +149,7 @@ export default function LandingPage() {
             </a>
           </div>
           <p className="landing-hero-note">
-            Built for teams that sell. No credit card required.
+            Built for teams that sell.
           </p>
 
           {/* Product preview card */}
@@ -160,14 +159,17 @@ export default function LandingPage() {
               <span className="landing-preview-dot"></span>
               <span className="landing-preview-dot"></span>
               <span className="landing-preview-title">LeadForge AI — Dashboard</span>
+              <span className="badge badge-warning" style={{ marginLeft: "auto" }}>
+                Illustrative sample data
+              </span>
             </div>
             <div className="landing-preview-body">
               <div className="landing-preview-side">
                 <span className="active">Dashboard</span>
                 <span>Leads</span>
                 <span>Discover</span>
-                <span>Agents</span>
-                <span>Inbox</span>
+                <span>Outreach</span>
+                <span>Projects</span>
                 <span>Analytics</span>
               </div>
               <div className="landing-preview-main">
@@ -192,27 +194,30 @@ export default function LandingPage() {
                 <div className="landing-preview-rows">
                   <div className="landing-preview-row">
                     <span className="badge badge-primary">Qualified</span>
-                    <span>Addis Fashion House — outreach sent</span>
+                    <span>Addis Fashion House — draft awaiting review</span>
                   </div>
                   <div className="landing-preview-row">
                     <span className="badge badge-success">Replied</span>
-                    <span>Haile Health Center — meeting booked</span>
+                    <span>Haile Health Center — conversation recorded</span>
                   </div>
                   <div className="landing-preview-row">
                     <span className="badge badge-gray">New</span>
-                    <span>Ethiopian Diaspora Group — enriching</span>
+                    <span>Ethiopian Diaspora Group — awaiting review</span>
                   </div>
                 </div>
+                <p style={{ margin: "10px 0 0", color: "var(--text-tertiary)", fontSize: "12px", textAlign: "center" }}>
+                  Fictional examples only — not live customer activity.
+                </p>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── Stats ──────────────────────────────────────────────────────── */}
-      <section className="landing-stats" id="stats">
+      {/* ── Product principles ─────────────────────────────────────────── */}
+      <section className="landing-stats" id="workflow-principles">
         <div className="landing-container landing-stats-grid">
-          {STATS.map((s) => (
+          {PRINCIPLES.map((s) => (
             <div key={s.label} className="landing-stat">
               <strong>{s.value}</strong>
               <span>{s.label}</span>
@@ -227,8 +232,7 @@ export default function LandingPage() {
           <span className="landing-eyebrow">WHAT WE DO</span>
           <h2 className="landing-section-title">Everything your pipeline needs</h2>
           <p className="landing-section-text">
-            One platform for discovery, engagement and delivery — designed, built and
-            secured by Sunshine Tech Solution.
+            A connected product workflow with clear human review at consequential steps.
           </p>
 
           <div className="landing-feature-grid">
@@ -249,7 +253,7 @@ export default function LandingPage() {
           <span className="landing-eyebrow">HOW IT WORKS</span>
           <h2 className="landing-section-title">From prospect to live website</h2>
           <p className="landing-section-text">
-            Four clear steps — the same workflow your team sees inside the dashboard.
+            Four explicit steps — with provider requirements and current product limits shown clearly.
           </p>
 
           <div className="landing-steps-grid">
@@ -303,7 +307,7 @@ export default function LandingPage() {
                 <span>LeadForge AI</span>
               </div>
               <p className="landing-footer-tagline">
-                Automated lead-to-deployment platform — an official product of
+                Lead-to-website workflow workspace — an official product of
                 Sunshine Tech Solution.
               </p>
             </div>
@@ -312,7 +316,7 @@ export default function LandingPage() {
                 <h4>PRODUCT</h4>
                 <Link href="/dashboard">Dashboard</Link>
                 <Link href="/leads">Leads</Link>
-                <Link href="/agents">Agents</Link>
+                <Link href="/agents">Automation activity</Link>
                 <Link href="/analytics">Analytics</Link>
               </div>
               <div>

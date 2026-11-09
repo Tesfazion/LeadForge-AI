@@ -184,6 +184,8 @@ export const api = {
 
   // --- Discovery ------------------------------------------------------------
 
+  getDiscoverySources: () => request("/discovery/sources"),
+
   /** Run AI / Apollo lead discovery based on criteria */
   discoverLeads: (criteria) =>
     request("/discovery/search", { method: "POST", body: JSON.stringify(criteria) }),

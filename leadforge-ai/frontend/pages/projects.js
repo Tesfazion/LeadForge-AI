@@ -1,41 +1,62 @@
 /**
  * Projects page
  *
- * Shows all AI-generated website projects across every lead.
- * Projects are created automatically when requirements are extracted from
- * a conversation and the Developer Agent runs a build.
+ * Shows website projects created from extracted requirements. Preview builds
+ * and deployments are separate, explicit workflow actions.
  */
 
 import useSWR from "swr";
 import Link from "next/link";
+import { useState } from "react";
 import { api } from "../lib/api";
+import { showToast } from "../components/Toast";
 import { getProjectStatusBadgeClass, formatStatus } from "../lib/utils";
 
 // Pipeline steps shown in the "How It Works" explainer card
 const HOW_IT_WORKS = [
-  { step: "1", title: "Extract Requirements", description: "Requirements Agent analyses the conversation and creates a structured JSON spec." },
-  { step: "2", title: "Generate Code",        description: "Developer Agent creates Next.js components and pages from the spec." },
-  { step: "3", title: "Add Integrations",     description: "Automatically includes Supabase, Stripe, or other requested services." },
-  { step: "4", title: "Deploy to Vercel",     description: "Site goes live instantly with a production URL." },
+  { step: "1", title: "Capture requirements", description: "Extract a structured website brief from a prospect conversation." },
+  { step: "2", title: "Generate site files", description: "Create a starter website project from the captured requirements." },
+  { step: "3", title: "Review the files", description: "Inspect the generated source before publishing it." },
+  { step: "4", title: "Deploy to Vercel", description: "Publish the reviewed site when deployment is configured." },
 ];
 
 export default function ProjectsPage() {
   // Projects live on the lead objects — fetch all leads and collect their projects
-  const { data: leads, isLoading, error } = useSWR("leads", api.getLeads);
+  const { data: leads, isLoading, error, mutate } = useSWR("leads", api.getLeads, {
+    refreshInterval: (currentLeads) =>
+      currentLeads?.some((lead) =>
+        lead.projects?.some((project) => ["BUILDING", "DEPLOYING"].includes(project.status))
+      ) ? 5000 : 0,
+  });
+  const [buildingProject, setBuildingProject] = useState(null);
 
   // Flatten all projects from all leads, attaching the lead reference for display
   const projects = (leads ?? []).flatMap((lead) =>
     (lead.projects ?? []).map((project) => ({ ...project, lead }))
   );
 
+  async function handleBuild(projectId) {
+    setBuildingProject(projectId);
+    try {
+      await api.triggerBuild(projectId);
+      await mutate();
+      showToast("Website files generated. Review them before deployment.", "success");
+    } catch (err) {
+      showToast(`Website build failed: ${err.message}`, "error");
+      await mutate();
+    } finally {
+      setBuildingProject(null);
+    }
+  }
+
   return (
     <>
       <div className="page-header">
         <div className="page-header-row">
           <div>
-            <h1 className="page-title">Projects</h1>
+            <h1 className="page-title">Website delivery</h1>
             <p className="page-description">
-              View and manage AI-generated websites for qualified leads
+              Move qualified leads from captured requirements to reviewed project files and deployment.
             </p>
           </div>
         </div>
@@ -44,7 +65,11 @@ export default function ProjectsPage() {
       {/* How it works explainer */}
       <div className="card" style={{ marginBottom: "32px" }}>
         <div className="card-header">
-          <div className="card-title">How the Developer Agent Works</div>
+          <div className="card-title">Requirements → project files → deployment</div>
+        </div>
+
+        <div className="banner banner-warning" role="note" style={{ marginBottom: "24px" }}>
+          Generated files are stored on the backend filesystem. In serverless deployments or after backend cleanup/restarts, they may need to be rebuilt; durable object storage is not configured yet.
         </div>
 
         <div className="grid-auto" style={{ gap: "24px" }}>
@@ -84,7 +109,7 @@ export default function ProjectsPage() {
           </div>
           <h3 className="empty-state-title">No projects yet</h3>
           <p className="empty-state-description">
-            Projects are created when a lead is qualified and requirements are extracted
+            Projects are created when requirements are extracted from a real conversation.
           </p>
 
           {/* Step-by-step guide */}
@@ -104,7 +129,8 @@ export default function ProjectsPage() {
               <li>Send outreach and get a reply</li>
               <li>Have a conversation about their needs</li>
               <li>Click "Extract Requirements" on the lead page</li>
-              <li>Click "Build &amp; Deploy" to generate the site</li>
+              <li>Generate the website files and review the source</li>
+              <li>Deploy the reviewed site to Vercel</li>
             </ol>
           </div>
         </div>
@@ -152,6 +178,30 @@ export default function ProjectsPage() {
                   <span><strong>Features:</strong> {project.requirements.features?.length ?? 0}</span>
                 </div>
               )}
+
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "16px" }}>
+                {["READY_TO_BUILD", "BUILD_FAILED", "PREVIEW_READY"].includes(project.status) && (
+                  <button
+                    className="btn btn-primary btn-sm"
+                    type="button"
+                    onClick={() => handleBuild(project.id)}
+                    disabled={buildingProject === project.id}
+                  >
+                    {buildingProject === project.id
+                      ? "Generating preview…"
+                      : project.status === "BUILD_FAILED"
+                        ? "Retry website build"
+                        : project.status === "PREVIEW_READY"
+                          ? "Regenerate website files"
+                          : "Generate website files"}
+                  </button>
+                )}
+                {["PREVIEW_READY", "DEPLOY_FAILED"].includes(project.status) && (
+                  <Link href={`/preview/${project.id}`} className="btn btn-primary btn-sm">
+                    {project.status === "DEPLOY_FAILED" ? "Review files & retry deployment" : "Review files & deploy"}
+                  </Link>
+                )}
+              </div>
 
               {/* Live URL + repo links */}
               {(project.deployUrl || project.repoUrl) && (

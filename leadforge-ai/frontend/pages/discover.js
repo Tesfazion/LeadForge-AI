@@ -1,20 +1,18 @@
 /**
  * Lead Discovery page
  *
- * Lets the user configure search criteria and asks the AI agent (with
- * optional Apollo / Clearbit fallback) to generate a list of potential leads.
- * Results can be automatically saved to the database.
+ * Searches Apollo for real prospects or creates clearly labeled fictional
+ * samples that cannot be saved to the contactable pipeline.
  */
 
 import { useState } from "react";
-import { useRouter } from "next/router";
+import useSWR from "swr";
 import { api } from "../lib/api";
 import { showToast } from "../components/Toast";
 
 const INDUSTRIES = [
-  "SaaS", "E-commerce", "Healthcare", "Real Estate", "Consulting",
-  "Marketing Agency", "Restaurant", "Fitness", "Education",
-  "Legal", "Construction", "Technology", "Finance", "Manufacturing",
+  "Technology", "Software", "SaaS", "E-commerce", "Healthcare",
+  "Finance", "Real Estate", "Consulting", "Marketing", "Education",
 ];
 
 const COMPANY_SIZES = [
@@ -30,11 +28,12 @@ const DEFAULT_FORM = {
   location:    "United States",
   companySize: "1-50 employees",
   count:       10,
-  autoAdd:     true,
+  autoAdd:     false,
+  source:      "apollo",
 };
 
 export default function DiscoverPage() {
-  const router = useRouter();
+  const { data: sources } = useSWR("discovery-sources", api.getDiscoverySources);
   const [form,        setForm]       = useState(DEFAULT_FORM);
   const [discovering, setDiscovering] = useState(false);
   const [results,     setResults]    = useState(null);
@@ -47,12 +46,11 @@ export default function DiscoverPage() {
     try {
       const result = await api.discoverLeads(form);
       setResults(result);
-      showToast(`Discovered ${result.discovered} leads`, "success");
-
-      if (form.autoAdd) {
-        // Give the user a moment to see the results before redirecting
-        setTimeout(() => router.push("/leads"), 3000);
-      }
+      showToast(result.isSampleData
+        ? `Generated ${result.discovered} fictional sample records`
+        : form.autoAdd
+          ? `Found ${result.discovered} prospects; added ${result.added} to your pipeline`
+          : `Found ${result.discovered} prospects for review`, "success");
     } catch (err) {
       showToast(`Discovery failed: ${err.message}`, "error");
     } finally {
@@ -67,7 +65,7 @@ export default function DiscoverPage() {
           <div>
             <h1 className="page-title">Lead Discovery</h1>
             <p className="page-description">
-              Use AI to discover potential customers matching your criteria
+                Find real prospects with Apollo, or preview the workflow using clearly marked fictional sample records.
             </p>
           </div>
         </div>
@@ -86,6 +84,32 @@ export default function DiscoverPage() {
           </div>
 
           <form onSubmit={handleDiscover}>
+            <div className="form-group">
+              <label className="form-label" htmlFor="discover-source">Data source</label>
+              <select
+                id="discover-source"
+                className="form-select"
+                value={form.source}
+                onChange={(event) => {
+                  const source = event.target.value;
+                  setForm({ ...form, source, autoAdd: false });
+                  setResults(null);
+                }}
+              >
+                <option value="apollo">Apollo · live prospect records</option>
+                <option value="ai">AI sample · fictional records only</option>
+              </select>
+              {form.source === "apollo" && sources && !sources.apollo && (
+                <div className="form-hint" role="status">
+                  Apollo credentials are not configured. Add them to the backend environment, or switch to AI sample mode.
+                </div>
+              )}
+              {form.source === "ai" && (
+                <div className="banner banner-warning" role="note" style={{ marginTop: "10px" }}>
+                  These contacts are fictional examples. They cannot be saved to your lead pipeline or contacted.
+                </div>
+              )}
+            </div>
             <div className="form-group">
               <label className="form-label" htmlFor="discover-industry">Industry</label>
               <select
@@ -133,8 +157,12 @@ export default function DiscoverPage() {
                 type="number"
                 min={1}
                 max={20}
+                required
                 value={form.count}
-                onChange={(e) => setForm({ ...form, count: parseInt(e.target.value, 10) })}
+                onChange={(e) => setForm({
+                  ...form,
+                  count: e.target.value === "" ? "" : Number.parseInt(e.target.value, 10),
+                })}
               />
               <div className="form-hint">Maximum 20 leads per search</div>
             </div>
@@ -143,10 +171,11 @@ export default function DiscoverPage() {
               <input
                 type="checkbox"
                 id="autoAdd"
-                checked={form.autoAdd}
+                checked={form.autoAdd && form.source !== "ai"}
+                disabled={form.source === "ai"}
                 onChange={(e) => setForm({ ...form, autoAdd: e.target.checked })}
               />
-              <label htmlFor="autoAdd">Add results to the leads database</label>
+              <label htmlFor="autoAdd">Save real prospects to my pipeline after search</label>
             </div>
 
             <button
@@ -176,10 +205,9 @@ export default function DiscoverPage() {
                 How it works
               </div>
               <ul style={{ lineHeight: 1.8, paddingLeft: "18px", margin: 0 }}>
-                <li>AI generates realistic leads matching your criteria</li>
-                <li>Each lead includes contact info and pain points</li>
-                <li>Leads are tagged with their discovery source</li>
-                <li>Ready for immediate outreach</li>
+                <li>Apollo search returns provider-sourced prospect records</li>
+                <li>Review records before they enter the contactable pipeline</li>
+                <li>AI sample mode is fictional and cannot be contacted</li>
               </ul>
             </div>
           </form>
@@ -198,7 +226,9 @@ export default function DiscoverPage() {
                   Discovering leads…
                 </div>
                 <div style={{ fontSize: "14px", color: "var(--text-secondary)" }}>
-                  AI is generating {form.count} potential customers in {form.industry}
+                {form.source === "ai"
+                  ? `Generating ${form.count} fictional sample records in ${form.industry}`
+                  : `Searching Apollo for up to ${form.count} prospects in ${form.industry}`}
                 </div>
               </div>
             </div>
@@ -211,12 +241,19 @@ export default function DiscoverPage() {
                 <div>
                   <div className="card-title">Discovery Results</div>
                   <div className="card-subtitle">
-                    Found {results.discovered} leads
-                    {form.autoAdd && `, added ${results.added} to database`}
+                    {results.isSampleData
+                      ? `Generated ${results.discovered} fictional sample records`
+                      : `Found ${results.discovered} real prospects${form.autoAdd ? `; added ${results.added} to your pipeline` : ""}`}
                   </div>
                 </div>
-                {form.autoAdd && (
-                  <span className="badge badge-success">Auto-added to leads</span>
+                {results.isSampleData ? (
+                  <span className="badge badge-warning">Fictional · not contactable</span>
+                ) : results.added > 0 ? (
+                  <span className="badge badge-success">Added to pipeline</span>
+                ) : form.autoAdd ? (
+                  <span className="badge badge-gray">No new contacts added</span>
+                ) : (
+                  <span className="badge badge-gray">Preview only</span>
                 )}
               </div>
 
@@ -237,15 +274,9 @@ export default function DiscoverPage() {
                 ))}
               </div>
 
-              {/* Auto-redirect notice */}
-              {form.autoAdd && (
-                <div className="banner banner-success" style={{ marginTop: "24px" }}>
-                  <div style={{ fontSize: "14px", fontWeight: 500, marginBottom: "4px" }}>
-                    ✓ Leads added successfully
-                  </div>
-                  <div style={{ fontSize: "13px", opacity: 0.9 }}>
-                    Redirecting to leads page…
-                  </div>
+              {!results.isSampleData && results.added > 0 && (
+                <div style={{ marginTop: "20px" }}>
+                  <a className="btn btn-secondary" href="/leads">Review saved prospects</a>
                 </div>
               )}
             </div>

@@ -35,6 +35,19 @@ outreachRouter.post("/draft", async (req, res, next) => {
     const lead = await prisma.lead.findUnique({ where: { id: leadId } });
     if (!lead) return res.status(404).json({ error: "Lead not found" });
 
+    const pendingDraft = await prisma.message.findFirst({
+      where: {
+        role: "AGENT",
+        approved: false,
+        sentAt: null,
+        conversation: { leadId: lead.id },
+      },
+      select: { id: true },
+    });
+    if (pendingDraft) {
+      return res.status(409).json({ error: "This lead already has an outreach draft waiting for review." });
+    }
+
     recordActivity({
       agent: "outreach",
       action: "drafting_email",
@@ -108,6 +121,9 @@ outreachRouter.post("/:messageId/approve", async (req, res, next) => {
       include: { conversation: { include: { lead: true } } },
     });
     if (!message) return res.status(404).json({ error: "Message not found" });
+    if (message.role !== "AGENT" || message.approved || message.sentAt) {
+      return res.status(409).json({ error: "Only an unsent outreach draft can be approved." });
+    }
 
     // Convert text to HTML with tracking
     const htmlContent = convertTextToTrackedHtml(message.content, message.id);
@@ -150,7 +166,9 @@ outreachRouter.put("/:messageId/edit", async (req, res, next) => {
     });
 
     if (!message) return res.status(404).json({ error: "Message not found" });
-    if (message.approved) return res.status(400).json({ error: "Cannot edit approved message" });
+    if (message.role !== "AGENT" || message.approved || message.sentAt) {
+      return res.status(400).json({ error: "Only an unsent outreach draft can be edited." });
+    }
 
     // Update message content
     const updatedMessage = await prisma.message.update({
@@ -188,7 +206,23 @@ outreachRouter.put("/:messageId/edit", async (req, res, next) => {
  */
 outreachRouter.post("/:messageId/reject", async (req, res, next) => {
   try {
-    const deleted = await prisma.message.delete({ where: { id: req.params.messageId } });
+    const message = await prisma.message.findUnique({
+      where: { id: req.params.messageId },
+      include: { conversation: true },
+    });
+    if (!message) return res.status(404).json({ error: "Draft not found" });
+    if (message.role !== "AGENT" || message.approved || message.sentAt) {
+      return res.status(409).json({ error: "Only an unsent outreach draft can be discarded." });
+    }
+
+    const deleted = await prisma.message.delete({ where: { id: message.id } });
+    const lead = await prisma.lead.findUnique({ where: { id: message.conversation.leadId } });
+    if (lead?.status === "OUTREACH_PENDING_APPROVAL") {
+      await prisma.lead.update({
+        where: { id: lead.id },
+        data: { status: "NEW" },
+      });
+    }
     res.json(deleted);
   } catch (err) {
     next(err);

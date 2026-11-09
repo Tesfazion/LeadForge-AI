@@ -9,7 +9,9 @@ test("OAuth state is signed and bound to its workspace and provider", () => {
     const state = createOAuthState("workspace-1", "github");
     assert.deepEqual(verifyOAuthState(state, "github").workspaceId, "workspace-1");
     assert.throws(() => verifyOAuthState(state, "gmail"), /mismatched/);
-    assert.throws(() => verifyOAuthState(`${state.slice(0, -1)}x`, "github"), /Invalid OAuth state/);
+    const [payload, signature] = state.split(".");
+    const tamperedSignature = `${signature[0] === "a" ? "b" : "a"}${signature.slice(1)}`;
+    assert.throws(() => verifyOAuthState(`${payload}.${tamperedSignature}`, "github"), /Invalid OAuth state/);
   } finally {
     if (previous === undefined) delete process.env.OAUTH_STATE_SECRET;
     else process.env.OAUTH_STATE_SECRET = previous;

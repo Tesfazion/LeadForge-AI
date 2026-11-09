@@ -3,11 +3,7 @@ import nodemailer from "nodemailer";
 let transporter;
 
 /**
- * Lazily builds a nodemailer transporter.
- * Supports multiple modes:
- * 1. Gmail OAuth2 (production)
- * 2. SMTP with credentials (e.g., Gmail App Password, SendGrid, etc.)
- * 3. Test mode (logs email without sending)
+ * Lazily builds a nodemailer transporter for a configured delivery provider.
  *
  * Setting up Gmail with App Password (easiest):
  * 1. Go to Google Account Settings → Security → 2-Step Verification
@@ -27,8 +23,7 @@ function getTransporter() {
     SMTP_HOST,
     SMTP_PORT,
     SMTP_USER,
-    SMTP_PASS,
-    EMAIL_MODE
+    SMTP_PASS
   } = process.env;
 
   // Mode 1: Gmail OAuth2
@@ -64,12 +59,9 @@ function getTransporter() {
     return transporter;
   }
 
-  // Mode 3: Test mode (no actual sending)
-  console.warn("[mailer] No email credentials configured. Using test mode (emails will be logged but not sent)");
-  transporter = nodemailer.createTransport({
-    jsonTransport: true,
-  });
-  return transporter;
+  const error = new Error("Email delivery is not configured. Configure Gmail OAuth2 or SMTP credentials on the backend.");
+  error.status = 503;
+  throw error;
 }
 
 export async function sendEmail({ to, subject, text, html }) {
@@ -88,18 +80,14 @@ export async function sendEmail({ to, subject, text, html }) {
 
   try {
     const info = await t.sendMail(mailOptions);
-    
-    // If using test mode, log the email
-    if (info.message) {
-      const preview = JSON.parse(info.message);
-      console.log("[mailer] TEST MODE - Email would be sent:");
-      console.log("  To:", to);
-      console.log("  Subject:", subject);
-      console.log("  Preview:", preview.text?.substring(0, 100) + "...");
-    } else {
-      console.log("[mailer] Email sent successfully to:", to);
+
+    if (Array.isArray(info.accepted) && !info.accepted.length) {
+      const error = new Error("The email provider did not accept the recipient.");
+      error.status = 502;
+      throw error;
     }
-    
+
+    console.log("[mailer] Email delivered");
     return info;
   } catch (error) {
     console.error("[mailer] Failed to send email:", error.message);

@@ -20,11 +20,11 @@ import { getStatusBadgeClass, getProjectStatusBadgeClass, formatStatus, getIniti
 
 // Pipeline steps shown above the tabs
 const PIPELINE = [
-  { id: "new",          label: "New Lead",      check: ()          => true },
-  { id: "outreach",     label: "Outreach Sent", check: (lead)      => lead.conversations.length > 0 },
-  { id: "conversation", label: "Conversation",  check: (lead)      => ["REPLIED", "QUALIFIED"].includes(lead.status) },
-  { id: "requirements", label: "Requirements",  check: (lead)      => lead.projects.length > 0 },
-  { id: "deployed",     label: "Site Deployed", check: (lead)      => lead.projects.some((p) => p.status === "DEPLOYED") },
+  { id: "new",          label: "Prospect",       check: ()          => true },
+  { id: "outreach",     label: "Outreach sent",  check: (lead)      => lead.conversations.some((conversation) => conversation.messages.some((message) => message.role === "AGENT" && message.sentAt)) },
+  { id: "conversation", label: "Reply received", check: (lead)      => lead.conversations.some((conversation) => conversation.messages.some((message) => message.role === "LEAD")) },
+  { id: "requirements", label: "Project ready",  check: (lead)      => lead.projects.length > 0 },
+  { id: "deployed",     label: "Website live",   check: (lead)      => lead.projects.some((project) => project.status === "DEPLOYED") },
 ];
 
 export default function LeadDetailPage() {
@@ -174,6 +174,12 @@ export default function LeadDetailPage() {
     active: step.check(lead),
   }));
   const completedCount = pipelineSteps.filter((s) => s.active).length - 1;
+  const hasSentOutreach = lead.conversations.some((conversation) =>
+    conversation.messages.some((message) => message.role === "AGENT" && message.sentAt)
+  );
+  const hasPendingOutreach = lead.conversations.some((conversation) =>
+    conversation.messages.some((message) => message.role === "AGENT" && !message.approved && !message.sentAt)
+  );
 
   const totalMessages = lead.conversations.reduce(
     (acc, c) => acc + c.messages.length,
@@ -211,7 +217,7 @@ export default function LeadDetailPage() {
             </p>
           </div>
 
-          {lead.conversations.length === 0 && (
+          {!hasSentOutreach && !hasPendingOutreach && (
             <button
               className="btn btn-primary"
               onClick={handleDraftOutreach}
@@ -219,6 +225,9 @@ export default function LeadDetailPage() {
             >
               {pendingAction === "draft" ? "Drafting…" : "Draft Outreach Email"}
             </button>
+          )}
+          {hasPendingOutreach && (
+            <Link className="btn btn-secondary" href="/outreach">Review pending draft</Link>
           )}
         </div>
       </div>
@@ -351,8 +360,12 @@ export default function LeadDetailPage() {
               </div>
             </div>
           ) : (
-            lead.conversations.map((conv) => (
-              <div key={conv.id} className="card" style={{ marginBottom: "24px" }}>
+            lead.conversations.map((conv) => {
+              const hasSentOutreach = conv.messages.some((message) =>
+                message.role === "AGENT" && message.approved && message.sentAt
+              );
+              return (
+                <div key={conv.id} className="card" style={{ marginBottom: "24px" }}>
                 {/* Conversation header */}
                 <div style={{
                   display: "flex",
@@ -430,36 +443,44 @@ export default function LeadDetailPage() {
                   })}
                 </div>
 
-                {/* Reply input (test harness) */}
-                <div style={{ padding: "16px", background: "var(--bg-secondary)", borderRadius: "var(--radius)" }}>
-                  <div style={{ fontSize: "12px", fontWeight: 600, marginBottom: "8px", color: "var(--text-tertiary)" }}>
-                    {/* Note: this simulates an inbound lead reply for testing purposes */}
-                    Simulate Lead Reply (for testing)
+                {hasSentOutreach ? (
+                  <div style={{ padding: "16px", background: "var(--bg-secondary)", borderRadius: "var(--radius)" }}>
+                    <div style={{ fontSize: "12px", fontWeight: 600, marginBottom: "8px", color: "var(--text-tertiary)" }}>
+                      Simulated lead reply · development/testing only
+                    </div>
+                    <p style={{ fontSize: "12px", color: "var(--text-secondary)", margin: "0 0 12px" }}>
+                      This does not send an email or receive a real customer reply. Production inbox synchronization is not available yet.
+                    </p>
+                    <div style={{ display: "flex", gap: "12px" }}>
+                      <input
+                        className="form-input"
+                        placeholder="Type a reply as the lead…"
+                        value={replyText}
+                        onChange={(e) => setReplyText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            handleReply(conv.id);
+                          }
+                        }}
+                      />
+                      <button
+                        className="btn btn-primary"
+                        onClick={() => handleReply(conv.id)}
+                        disabled={pendingAction === conv.id || !replyText.trim()}
+                      >
+                        {pendingAction === conv.id ? "Sending…" : "Add test reply"}
+                      </button>
+                    </div>
                   </div>
-                  <div style={{ display: "flex", gap: "12px" }}>
-                    <input
-                      className="form-input"
-                      placeholder="Type a reply as the lead…"
-                      value={replyText}
-                      onChange={(e) => setReplyText(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          handleReply(conv.id);
-                        }
-                      }}
-                    />
-                    <button
-                      className="btn btn-primary"
-                      onClick={() => handleReply(conv.id)}
-                      disabled={pendingAction === conv.id || !replyText.trim()}
-                    >
-                      {pendingAction === conv.id ? "Sending…" : "Send Reply"}
-                    </button>
+                ) : (
+                  <div className="banner banner-info">
+                    Simulated replies are available after an outreach email is approved and sent.
                   </div>
+                )}
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </>
       )}
@@ -538,7 +559,7 @@ export default function LeadDetailPage() {
                     </span>
                   </div>
 
-                  {project.status === "READY_TO_BUILD" && (
+                  {["READY_TO_BUILD", "BUILD_FAILED"].includes(project.status) && (
                     <button
                       className="btn btn-primary"
                       onClick={() => handleBuild(project.id)}
@@ -547,9 +568,14 @@ export default function LeadDetailPage() {
                       {pendingAction === project.id ? (
                         <><div className="spinner" style={{ width: "16px", height: "16px", borderWidth: "2px" }} /> Building…</>
                       ) : (
-                        "Build & Deploy"
+                        project.status === "BUILD_FAILED" ? "Retry website build" : "Generate website files"
                       )}
                     </button>
+                  )}
+                  {["PREVIEW_READY", "DEPLOY_FAILED"].includes(project.status) && (
+                    <Link href={`/preview/${project.id}`} className="btn btn-primary">
+                      {project.status === "DEPLOY_FAILED" ? "Review files & retry deployment" : "Review files & deploy"}
+                    </Link>
                   )}
                 </div>
 

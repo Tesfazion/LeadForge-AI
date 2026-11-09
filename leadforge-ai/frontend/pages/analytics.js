@@ -23,12 +23,18 @@ export default function AnalyticsPage() {
   const analytics = useMemo(() => {
     if (!leads) return null;
 
-    // Growth over time (last 30 days)
+    // New leads per calendar day (last 30 days), not a cumulative count.
     const now = new Date();
     const growthData = [];
     for (let i = 29; i >= 0; i--) {
       const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-      const count = leads.filter(l => new Date(l.createdAt) <= date).length;
+      date.setHours(0, 0, 0, 0);
+      const nextDay = new Date(date);
+      nextDay.setDate(nextDay.getDate() + 1);
+      const count = leads.filter((lead) => {
+        const createdAt = new Date(lead.createdAt);
+        return createdAt >= date && createdAt < nextDay;
+      }).length;
       growthData.push({
         date: date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
         leads: count,

@@ -12,27 +12,29 @@ import { api } from "../lib/api";
 import { getStatusBadgeClass, formatStatus, formatDate, formatDateTime, getInitial } from "../lib/utils";
 
 // Statuses that indicate a conversation has started
-const ACTIVE_STATUSES = ["REPLIED", "QUALIFIED", "OUTREACH_SENT"];
+const CONVERSATION_STATUSES = ["REPLIED", "QUALIFIED", "OUTREACH_SENT"];
 
 export default function ConversationsPage() {
-  const { data: leads } = useSWR("leads", api.getLeads);
+  const { data: leads, error, isLoading } = useSWR("leads", api.getLeads);
   const [filter, setFilter] = useState("all");
 
-  // First: only show leads that have a conversation
+  // Use persisted conversation counts instead of assuming every sent lead has a reply.
   const conversationLeads = leads?.filter(
-    (lead) => ACTIVE_STATUSES.includes(lead.status)
+    (lead) => CONVERSATION_STATUSES.includes(lead.status) && lead._count?.conversations > 0
   ) ?? [];
 
   // Then apply the active filter tab
   const filteredLeads = conversationLeads.filter((lead) => {
-    if (filter === "active")    return lead.status === "OUTREACH_SENT";
+    if (filter === "awaiting")  return lead.status === "OUTREACH_SENT";
+    if (filter === "replied")   return lead.status === "REPLIED";
     if (filter === "qualified") return lead.status === "QUALIFIED";
     return true; // "all"
   });
 
   const filters = [
     { key: "all",       label: "All",       count: conversationLeads.length },
-    { key: "active",    label: "Active",    count: conversationLeads.filter((l) => l.status === "OUTREACH_SENT").length },
+    { key: "awaiting",  label: "Awaiting reply", count: conversationLeads.filter((l) => l.status === "OUTREACH_SENT").length },
+    { key: "replied",   label: "Replied",   count: conversationLeads.filter((l) => l.status === "REPLIED").length },
     { key: "qualified", label: "Qualified", count: conversationLeads.filter((l) => l.status === "QUALIFIED").length },
   ];
 
@@ -43,11 +45,14 @@ export default function ConversationsPage() {
           <div>
             <h1 className="page-title">Conversations</h1>
             <p className="page-description">
-              Track and manage all active conversations with leads
+              Follow each lead from sent outreach through reply and qualification. Real inbox synchronization is not enabled.
             </p>
           </div>
         </div>
       </div>
+
+      {error && <div className="banner banner-error" role="alert">Couldn&apos;t load conversations. Check the API connection and retry.</div>}
+      {isLoading && <div className="empty-state" role="status"><div className="spinner" /></div>}
 
       {/* Filter tabs */}
       <div className="card">
@@ -69,7 +74,7 @@ export default function ConversationsPage() {
       </div>
 
       {/* Empty state */}
-      {filteredLeads.length === 0 && (
+      {!isLoading && !error && filteredLeads.length === 0 && (
         <div className="empty-state">
           <div className="empty-state-icon">
             <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -77,12 +82,16 @@ export default function ConversationsPage() {
             </svg>
           </div>
           <h3 className="empty-state-title">
-            {filter === "all" ? "No active conversations" : `No ${filter} conversations`}
+            {filter === "all"
+              ? "No conversations in the pipeline"
+              : filter === "awaiting"
+                ? "No leads awaiting a reply"
+                : `No ${filter} conversations`}
           </h3>
           <p className="empty-state-description">
             {filter === "all"
-              ? "Start outreach to begin conversations with your leads"
-              : "Try switching to the 'All' tab to see all conversations"}
+              ? "Review and send an outreach draft to start a conversation. Customer replies must currently be entered as a clearly labeled test simulation."
+              : "Try switching to 'All' to see every lead with a conversation."}
           </p>
           {filter === "all" && (
             <div style={{ marginTop: "24px" }}>

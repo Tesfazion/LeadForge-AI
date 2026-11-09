@@ -40,7 +40,7 @@ export function generateTrackingPixel(messageId) {
     events: [],
   });
 
-  const baseUrl = process.env.BACKEND_URL || "http://localhost:1100";
+  const baseUrl = process.env.BACKEND_URL || "http://localhost:4000";
   return `${baseUrl}/track/open/${token}`;
 }
 
@@ -59,7 +59,7 @@ export function generateTrackedLink(messageId, originalUrl, linkId = "link") {
     events: [],
   });
 
-  const baseUrl = process.env.BACKEND_URL || "http://localhost:1100";
+  const baseUrl = process.env.BACKEND_URL || "http://localhost:4000";
   return `${baseUrl}/track/click/${token}`;
 }
 

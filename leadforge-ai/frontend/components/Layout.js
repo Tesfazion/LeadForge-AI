@@ -25,29 +25,37 @@ import { api } from "../lib/api";
 
 const NAV = [
   {
-    section: "Main",
+    section: "01 · Find prospects",
     items: [
-      { name: "Dashboard",     href: "/dashboard",     icon: "chart"   },
-      { name: "Leads",         href: "/leads",         icon: "users"   },
+      { name: "Dashboard",     href: "/dashboard",     icon: "home"    },
       { name: "Discover",      href: "/discover",      icon: "search"  },
-      { name: "Agents",        href: "/agents",        icon: "robot"   },
+      { name: "Lead pipeline", href: "/leads",         icon: "users"   },
     ],
   },
   {
-    section: "Engagement",
+    section: "02 · Engage",
     items: [
-      { name: "Inbox",         href: "/inbox",         icon: "inbox"   },
-      { name: "Outreach",      href: "/outreach",      icon: "mail",   badge: true },
+      { name: "Review outreach", href: "/outreach",    icon: "mail",   badge: true },
       { name: "Conversations", href: "/conversations", icon: "message" },
+    ],
+  },
+  {
+    section: "03 · Deliver",
+    items: [
+      { name: "Website projects", href: "/projects",   icon: "folder"  },
+    ],
+  },
+  {
+    section: "Insights",
+    items: [
+      { name: "Automation activity", href: "/agents",   icon: "robot"   },
       { name: "Analytics",     href: "/analytics",     icon: "trending"},
     ],
   },
   {
-    section: "Automation",
+    section: "Workspace",
     items: [
-      { name: "Projects",      href: "/projects",      icon: "folder"  },
       { name: "Integrations",  href: "/integrations",  icon: "plugin"  },
-      { name: "Team",          href: "/team",          icon: "team"    },
       { name: "Settings",      href: "/settings",      icon: "settings" },
     ],
   },
@@ -58,8 +66,10 @@ const SUNSHINE_URL = "https://sunshinetechsolution.vercel.app/";
 // Routes that are not primary navigation entries but still appear in the
 // topbar breadcrumb (keyed by first path segment).
 const BREADCRUMB_OVERRIDES = {
-  "build-live": "Build Live",
+  "build-live": "Website Preview",
   preview: "Projects",
+  inbox: "Email inbox",
+  team: "Team access",
 };
 
 // ---------------------------------------------------------------------------
@@ -396,8 +406,9 @@ export default function Layout({ children, userEmail, authError, onSignOut }) {
             </button>
 
             {/* Notifications */}
-            <Link className="icon-button" href="/inbox" aria-label="Open inbox" title="Open inbox">
-              <Icon name="bell" size={20} />
+            <Link className="icon-button" href="/outreach" aria-label={`${pendingCount} outreach drafts need review`} title="Review outreach drafts">
+              <Icon name="mail" size={20} />
+              {pendingCount > 0 && <span className="nav-badge">{pendingCount}</span>}
             </Link>
             {authError && <span className="auth-inline-error" role="alert">{authError}</span>}
             <span className="topbar-account-label" title={userEmail}>{userEmail}</span>

@@ -28,13 +28,20 @@ export const chatRouter = Router();
 chatRouter.post("/:conversationId/reply", async (req, res, next) => {
   try {
     const { content } = req.body;
-    if (!content) return res.status(400).json({ error: "content is required" });
+    if (typeof content !== "string" || !content.trim()) {
+      return res.status(400).json({ error: "content must be a non-empty string" });
+    }
 
     const conversation = await prisma.conversation.findUnique({
       where: { id: req.params.conversationId },
       include: { messages: { orderBy: { createdAt: "asc" } }, lead: true },
     });
     if (!conversation) return res.status(404).json({ error: "Conversation not found" });
+    if (!conversation.messages.some((message) =>
+      message.role === "AGENT" && message.approved && message.sentAt
+    )) {
+      return res.status(409).json({ error: "Send an approved outreach email before adding a simulated reply." });
+    }
 
     recordActivity({
       agent: "chat",
@@ -46,7 +53,7 @@ chatRouter.post("/:conversationId/reply", async (req, res, next) => {
     });
 
     const leadMessage = await prisma.message.create({
-      data: { conversationId: conversation.id, role: "LEAD", content, approved: true, sentAt: new Date() },
+      data: { conversationId: conversation.id, role: "LEAD", content: content.trim(), approved: true, sentAt: new Date() },
     });
 
     await prisma.lead.update({ where: { id: conversation.leadId }, data: { status: "REPLIED" } });

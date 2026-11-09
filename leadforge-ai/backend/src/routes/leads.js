@@ -29,7 +29,7 @@ leadsRouter.get("/summary", async (req, res, next) => {
     const previousStart = new Date(start);
     previousStart.setUTCDate(previousStart.getUTCDate() - range);
 
-    const [statusRows, sourceRows, latestLeads, dailyRows, pendingOutreachCount] = await Promise.all([
+    const [statusRows, sourceRows, latestLeads, dailyRows, pendingOutreachCount, replyReadyLead, actionableProjects] = await Promise.all([
       prisma.lead.groupBy({
         by: ["status"],
         _count: { _all: true },
@@ -61,6 +61,17 @@ leadsRouter.get("/summary", async (req, res, next) => {
       `,
       prisma.message.count({
         where: { role: "AGENT", approved: false, sentAt: null },
+      }),
+      prisma.lead.findFirst({
+        where: { status: "REPLIED" },
+        orderBy: { updatedAt: "desc" },
+        select: { id: true, name: true, email: true, company: true },
+      }),
+      prisma.project.findMany({
+        where: { status: { in: ["READY_TO_BUILD", "BUILD_FAILED", "PREVIEW_READY", "DEPLOY_FAILED"] } },
+        orderBy: { updatedAt: "desc" },
+        take: 1,
+        select: { id: true, leadId: true, name: true, status: true },
       }),
     ]);
 
@@ -123,6 +134,8 @@ leadsRouter.get("/summary", async (req, res, next) => {
       conversion: total ? (qualified / total) * 100 : 0,
       responseRate: contacted ? (responded / contacted) * 100 : 0,
       pendingOutreachCount,
+      replyReadyLead,
+      actionableProject: actionableProjects[0] || null,
       trend,
       latestLeads,
       sourceStats,
