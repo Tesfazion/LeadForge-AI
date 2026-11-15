@@ -1,9 +1,32 @@
 ﻿import useSWR from "swr";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "../../lib/api";
 import { showToast } from "../../components/Toast";
 import { getStatusBadgeClass, formatStatus } from "../../lib/utils";
+import { supabase } from "../../lib/supabase";
+
+const LEAD_STATUSES = [
+  "ALL",
+  "NEW",
+  "OUTREACH_DRAFTED",
+  "OUTREACH_PENDING_APPROVAL",
+  "OUTREACH_SENT",
+  "REPLIED",
+  "QUALIFIED",
+  "DISQUALIFIED",
+];
+const SORT_FIELDS = ["name", "company", "status", "createdAt"];
+const VIEW_MODES = ["table", "board"];
+const BOARD_STATUSES = [
+  "NEW",
+  "OUTREACH_DRAFTED",
+  "OUTREACH_PENDING_APPROVAL",
+  "OUTREACH_SENT",
+  "REPLIED",
+  "QUALIFIED",
+  "DISQUALIFIED",
+];
 
 export default function LeadsPage() {
   const { data: leads, error, isLoading, mutate } = useSWR("leads", api.getLeads);
@@ -12,6 +35,74 @@ export default function LeadsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [sortBy, setSortBy] = useState("createdAt");
+  const [sortDirection, setSortDirection] = useState("desc");
+  const [viewMode, setViewMode] = useState("table");
+  const [preferencesReady, setPreferencesReady] = useState(false);
+  const [preferencesKey, setPreferencesKey] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadPreferences() {
+      try {
+        if (!supabase) return;
+        const { data, error: accountError } = await supabase.auth.getUser();
+        if (accountError) throw accountError;
+        if (!data.user) return;
+
+        const key = `leadforge.lead-list.${data.user.id}`;
+        const saved = localStorage.getItem(key);
+        if (saved) {
+          let preferences;
+          try {
+            preferences = JSON.parse(saved);
+          } catch {
+            localStorage.removeItem(key);
+            showToast("Saved lead-list preferences could not be read and were reset.", "error");
+          }
+
+          if (preferences && typeof preferences === "object" && !Array.isArray(preferences)) {
+            if (typeof preferences.searchQuery === "string") setSearchQuery(preferences.searchQuery);
+            if (LEAD_STATUSES.includes(preferences.statusFilter)) setStatusFilter(preferences.statusFilter);
+            if (SORT_FIELDS.includes(preferences.sortBy)) setSortBy(preferences.sortBy);
+            if (preferences.sortDirection === "asc" || preferences.sortDirection === "desc") {
+              setSortDirection(preferences.sortDirection);
+            }
+            if (VIEW_MODES.includes(preferences.viewMode)) setViewMode(preferences.viewMode);
+          } else if (preferences !== undefined) {
+            localStorage.removeItem(key);
+            showToast("Saved lead-list preferences were invalid and have been reset.", "error");
+          }
+        }
+        if (active) setPreferencesKey(key);
+      } catch (preferencesError) {
+        if (active) showToast(`Could not load saved lead-list preferences: ${preferencesError.message}`, "error");
+      } finally {
+        if (active) setPreferencesReady(true);
+      }
+    }
+
+    loadPreferences();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!preferencesReady || !preferencesKey) return;
+    try {
+      localStorage.setItem(preferencesKey, JSON.stringify({
+        searchQuery,
+        statusFilter,
+        sortBy,
+        sortDirection,
+        viewMode,
+      }));
+    } catch (preferencesError) {
+      showToast(`Could not save lead-list preferences: ${preferencesError.message}`, "error");
+    }
+  }, [preferencesKey, preferencesReady, searchQuery, statusFilter, sortBy, sortDirection, viewMode]);
 
   async function handleAddLead(e) {
     e.preventDefault();
@@ -28,16 +119,68 @@ export default function LeadsPage() {
     }
   }
 
-  const filteredLeads = leads?.filter(lead => {
-    const matchesSearch = searchQuery === "" ||
-      lead.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lead.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lead.company?.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredLeads = leads?.filter((lead) => {
+    const query = searchQuery.trim().toLowerCase();
+    const matchesSearch = !query ||
+      lead.name?.toLowerCase().includes(query) ||
+      lead.email?.toLowerCase().includes(query) ||
+      lead.company?.toLowerCase().includes(query);
 
     const matchesStatus = statusFilter === "ALL" || lead.status === statusFilter;
 
     return matchesSearch && matchesStatus;
   });
+  const sortedLeads = filteredLeads && [...filteredLeads].sort((left, right) => {
+    const direction = sortDirection === "asc" ? 1 : -1;
+    if (sortBy === "createdAt") {
+      const leftDate = Date.parse(left.createdAt);
+      const rightDate = Date.parse(right.createdAt);
+      if (!Number.isFinite(leftDate) || !Number.isFinite(rightDate)) return 0;
+      return (leftDate - rightDate) * direction;
+    }
+    const leftValue = String(sortBy === "name" ? left.name || left.email : left[sortBy] || "").toLowerCase();
+    const rightValue = String(sortBy === "name" ? right.name || right.email : right[sortBy] || "").toLowerCase();
+    return leftValue.localeCompare(rightValue, undefined, { numeric: true }) * direction;
+  });
+  const hasCustomLeadView = Boolean(searchQuery || statusFilter !== "ALL" || sortBy !== "createdAt" || sortDirection !== "desc" || viewMode !== "table");
+  const statusCounts = (leads ?? []).reduce((counts, lead) => {
+    counts[lead.status] = (counts[lead.status] || 0) + 1;
+    return counts;
+  }, {});
+
+  function handleExport() {
+    if (!sortedLeads?.length) return;
+
+    const columns = ["name", "email", "company", "status", "source", "createdAt"];
+    const escape = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+    const csv = [
+      columns.join(","),
+      ...sortedLeads.map((lead) => columns.map((column) => escape(lead[column])).join(",")),
+    ].join("\r\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `leadforge-leads-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function toggleSort(field) {
+    if (sortBy === field) {
+      setSortDirection((direction) => direction === "asc" ? "desc" : "asc");
+      return;
+    }
+    setSortBy(field);
+    setSortDirection(field === "createdAt" ? "desc" : "asc");
+  }
+
+  function resetLeadView() {
+    setSearchQuery("");
+    setStatusFilter("ALL");
+    setSortBy("createdAt");
+    setSortDirection("desc");
+    setViewMode("table");
+  }
 
   // getStatusBadgeClass and formatStatus are imported from lib/utils
 
@@ -52,6 +195,12 @@ export default function LeadsPage() {
             </p>
           </div>
           <div className="page-actions">
+            <button type="button" className="btn btn-secondary" onClick={handleExport} disabled={!sortedLeads?.length} title="Export the currently filtered leads">
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v12m0 0l4-4m-4 4l-4-4M4 17v3h16v-3" />
+              </svg>
+              Export CSV
+            </button>
             <Link href="/discover" className="btn btn-secondary">
               <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
@@ -67,6 +216,29 @@ export default function LeadsPage() {
           </div>
         </div>
       </div>
+
+      <section className="lead-status-overview" aria-label="Lead status overview">
+        {[
+          { label: "All leads", status: "ALL", count: leads?.length ?? 0 },
+          { label: "Needs approval", status: "OUTREACH_PENDING_APPROVAL", count: statusCounts.OUTREACH_PENDING_APPROVAL || 0 },
+          { label: "Replied", status: "REPLIED", count: statusCounts.REPLIED || 0 },
+          { label: "Qualified", status: "QUALIFIED", count: statusCounts.QUALIFIED || 0 },
+        ].map((item) => (
+          <button
+            key={item.status}
+            type="button"
+            className={`lead-status-tile ${statusFilter === item.status ? "is-active" : ""}`}
+            aria-pressed={statusFilter === item.status}
+            onClick={() => {
+              setStatusFilter(item.status);
+              setSearchQuery("");
+            }}
+          >
+            <span>{item.label}</span>
+            <strong>{item.count.toLocaleString()}</strong>
+          </button>
+        ))}
+      </section>
 
       {/* Add Lead Modal */}
       {showForm && (
@@ -139,8 +311,8 @@ export default function LeadsPage() {
       )}
 
       {/* Filters */}
-      <div className="card">
-        <div className="toolbar">
+      <div className="card lead-list-controls">
+        <div className="toolbar lead-list-toolbar">
           <div className="toolbar-search">
             <input
               type="text"
@@ -167,7 +339,24 @@ export default function LeadsPage() {
             <option value="QUALIFIED">Qualified</option>
             <option value="DISQUALIFIED">Disqualified</option>
           </select>
-
+          {hasCustomLeadView && (
+            <button type="button" className="btn btn-ghost btn-sm lead-filter-reset" onClick={resetLeadView}>
+              Reset view
+            </button>
+          )}
+          <div className="lead-view-toggle" role="group" aria-label="Lead display">
+            {VIEW_MODES.map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                className={viewMode === mode ? "is-active" : ""}
+                aria-pressed={viewMode === mode}
+                onClick={() => setViewMode(mode)}
+              >
+                {mode === "table" ? "List" : "Board"}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -211,21 +400,37 @@ export default function LeadsPage() {
       )}
 
       {/* Leads Table */}
-      {filteredLeads && filteredLeads.length > 0 && (
+      {viewMode === "table" && sortedLeads && sortedLeads.length > 0 && (
         <div className="table-container table-scroll fade-in">
           <table className="table">
             <thead>
               <tr>
-                <th>Contact</th>
-                <th>Company</th>
+                <th aria-sort={sortBy === "name" ? (sortDirection === "asc" ? "ascending" : "descending") : "none"}>
+                  <button type="button" className="table-sort-button" onClick={() => toggleSort("name")}>
+                    Contact <span aria-hidden="true">{sortBy === "name" ? (sortDirection === "asc" ? "↑" : "↓") : "↕"}</span>
+                  </button>
+                </th>
+                <th aria-sort={sortBy === "company" ? (sortDirection === "asc" ? "ascending" : "descending") : "none"}>
+                  <button type="button" className="table-sort-button" onClick={() => toggleSort("company")}>
+                    Company <span aria-hidden="true">{sortBy === "company" ? (sortDirection === "asc" ? "↑" : "↓") : "↕"}</span>
+                  </button>
+                </th>
                 <th>Source</th>
-                <th>Status</th>
-                <th>Added</th>
+                <th aria-sort={sortBy === "status" ? (sortDirection === "asc" ? "ascending" : "descending") : "none"}>
+                  <button type="button" className="table-sort-button" onClick={() => toggleSort("status")}>
+                    Status <span aria-hidden="true">{sortBy === "status" ? (sortDirection === "asc" ? "↑" : "↓") : "↕"}</span>
+                  </button>
+                </th>
+                <th aria-sort={sortBy === "createdAt" ? (sortDirection === "asc" ? "ascending" : "descending") : "none"}>
+                  <button type="button" className="table-sort-button" onClick={() => toggleSort("createdAt")}>
+                    Added <span aria-hidden="true">{sortBy === "createdAt" ? (sortDirection === "asc" ? "↑" : "↓") : "↕"}</span>
+                  </button>
+                </th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {filteredLeads.map((lead) => (
+              {sortedLeads.map((lead) => (
                 <tr key={lead.id}>
                   <td>
                     <div style={{ fontWeight: 500 }}>{lead.name || lead.email}</div>
@@ -259,10 +464,36 @@ export default function LeadsPage() {
         </div>
       )}
 
+      {viewMode === "board" && sortedLeads && sortedLeads.length > 0 && (
+        <div className="lead-board" aria-label="Lead pipeline board">
+          {BOARD_STATUSES.map((status) => {
+            const columnLeads = sortedLeads.filter((lead) => lead.status === status);
+            return (
+              <section className="lead-board-column" key={status} aria-labelledby={`board-${status}`}>
+                <header className="lead-board-column-header">
+                  <h2 id={`board-${status}`}>{formatStatus(status)}</h2>
+                  <span>{columnLeads.length}</span>
+                </header>
+                <div className="lead-board-column-content">
+                  {columnLeads.length ? columnLeads.map((lead) => (
+                    <Link href={`/leads/${lead.id}`} key={lead.id} className="lead-board-card">
+                      <span className="badge">{formatStatus(lead.status)}</span>
+                      <strong>{lead.name || lead.email}</strong>
+                      <span>{lead.company || lead.email}</span>
+                      <time dateTime={lead.createdAt}>{new Date(lead.createdAt).toLocaleDateString()}</time>
+                    </Link>
+                  )) : <p className="lead-board-empty">No leads in this stage</p>}
+                </div>
+              </section>
+            );
+          })}
+        </div>
+      )}
+
       {/* Results count */}
-      {filteredLeads && filteredLeads.length > 0 && (
-        <div style={{ marginTop: "16px", fontSize: "13px", color: "var(--text-secondary)" }}>
-          Showing <strong>{filteredLeads.length}</strong> of {leads.length} leads
+      {sortedLeads && sortedLeads.length > 0 && (
+        <div className="leads-results-count" role="status" aria-live="polite">
+          Showing <strong>{sortedLeads.length}</strong> of {leads.length} leads
         </div>
       )}
     </>

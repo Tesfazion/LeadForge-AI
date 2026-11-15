@@ -17,6 +17,7 @@ import { useState, useEffect } from "react";
 import { api } from "../../lib/api";
 import { showToast } from "../../components/Toast";
 import { getStatusBadgeClass, getProjectStatusBadgeClass, formatStatus, getInitial } from "../../lib/utils";
+import Modal from "../../components/Modal";
 
 // Pipeline steps shown above the tabs
 const PIPELINE = [
@@ -39,6 +40,9 @@ export default function LeadDetailPage() {
   const [replyText,     setReplyText]     = useState("");
   const [pendingAction, setPendingAction] = useState(null); // ID of the conv/project being acted on
   const [activeTab,     setActiveTab]     = useState("conversation");
+  const [editingLead, setEditingLead] = useState(false);
+  const [editForm, setEditForm] = useState(null);
+  const [savingLead, setSavingLead] = useState(false);
 
   // Auto-refresh while an active build/requirements extraction is running
   useEffect(() => {
@@ -105,6 +109,34 @@ export default function LeadDetailPage() {
       showToast(err.message, "error");
     } finally {
       setPendingAction(null);
+    }
+  }
+
+  function openLeadEditor() {
+    setEditForm({
+      name: lead.name || "",
+      email: lead.email || "",
+      company: lead.company || "",
+      source: lead.source || "",
+      notes: lead.notes || "",
+    });
+    setEditingLead(true);
+  }
+
+  async function handleSaveLead(event) {
+    event.preventDefault();
+    if (!editForm) return;
+
+    setSavingLead(true);
+    try {
+      await api.updateLead(id, editForm);
+      await mutate();
+      setEditingLead(false);
+      showToast("Lead details saved.", "success");
+    } catch (saveError) {
+      showToast(`Could not save lead details: ${saveError.message}`, "error");
+    } finally {
+      setSavingLead(false);
     }
   }
 
@@ -217,20 +249,44 @@ export default function LeadDetailPage() {
             </p>
           </div>
 
-          {!hasSentOutreach && !hasPendingOutreach && (
-            <button
-              className="btn btn-primary"
-              onClick={handleDraftOutreach}
-              disabled={pendingAction === "draft"}
-            >
-              {pendingAction === "draft" ? "Drafting…" : "Draft Outreach Email"}
+          <div className="lead-detail-actions">
+            <button className="btn btn-secondary" type="button" onClick={openLeadEditor}>
+              Edit contact
             </button>
-          )}
-          {hasPendingOutreach && (
-            <Link className="btn btn-secondary" href="/outreach">Review pending draft</Link>
-          )}
+            {!hasSentOutreach && !hasPendingOutreach && (
+              <button
+                className="btn btn-primary"
+                onClick={handleDraftOutreach}
+                disabled={pendingAction === "draft"}
+              >
+                {pendingAction === "draft" ? "Drafting…" : "Draft Outreach Email"}
+              </button>
+            )}
+            {hasPendingOutreach && (
+              <Link className="btn btn-secondary" href="/outreach">Review pending draft</Link>
+            )}
+          </div>
         </div>
       </div>
+
+      <section className="card lead-contact-card" aria-labelledby="lead-contact-title">
+        <div className="lead-contact-heading">
+          <div>
+            <span className="dashboard-section-eyebrow">CONTACT RECORD</span>
+            <h2 id="lead-contact-title">Lead details</h2>
+          </div>
+          <span className="lead-contact-updated">
+            Updated {new Date(lead.updatedAt).toLocaleDateString()}
+          </span>
+        </div>
+        <dl className="lead-contact-grid">
+          <div><dt>Email</dt><dd><a href={`mailto:${lead.email}`}>{lead.email}</a></dd></div>
+          <div><dt>Company</dt><dd>{lead.company || "Not provided"}</dd></div>
+          <div><dt>Source</dt><dd>{lead.source || "Not provided"}</dd></div>
+          <div><dt>Added</dt><dd>{new Date(lead.createdAt).toLocaleDateString()}</dd></div>
+        </dl>
+        {lead.notes && <p className="lead-contact-notes">{lead.notes}</p>}
+      </section>
 
       {/* ------------------------------------------------------------------ */}
       {/* Pipeline stepper                                                     */}
@@ -652,6 +708,45 @@ export default function LeadDetailPage() {
           )}
         </>
       )}
+
+      <Modal
+        isOpen={editingLead}
+        onClose={() => {
+          if (savingLead) return;
+          setEditingLead(false);
+        }}
+        title="Edit lead details"
+        maxWidth={640}
+      >
+        {editForm && (
+          <form className="lead-edit-form" onSubmit={handleSaveLead}>
+            <label htmlFor="lead-edit-name">Full name</label>
+            <input id="lead-edit-name" className="form-input" value={editForm.name} maxLength={120} onChange={(event) => setEditForm({ ...editForm, name: event.target.value })} />
+
+            <label htmlFor="lead-edit-email">Email address</label>
+            <input id="lead-edit-email" className="form-input" type="email" autoComplete="email" required maxLength={320} value={editForm.email} onChange={(event) => setEditForm({ ...editForm, email: event.target.value })} />
+
+            <label htmlFor="lead-edit-company">Company</label>
+            <input id="lead-edit-company" className="form-input" maxLength={160} value={editForm.company} onChange={(event) => setEditForm({ ...editForm, company: event.target.value })} />
+
+            <label htmlFor="lead-edit-source">Source</label>
+            <input id="lead-edit-source" className="form-input" maxLength={120} value={editForm.source} onChange={(event) => setEditForm({ ...editForm, source: event.target.value })} />
+
+            <label htmlFor="lead-edit-notes">Notes</label>
+            <textarea id="lead-edit-notes" className="form-textarea" rows={5} maxLength={10000} value={editForm.notes} onChange={(event) => setEditForm({ ...editForm, notes: event.target.value })} />
+
+            <div className="lead-edit-footer">
+              <span>{editForm.notes.length}/10,000 characters</span>
+              <div>
+                <button className="btn btn-secondary" type="button" onClick={() => setEditingLead(false)} disabled={savingLead}>Cancel</button>
+                <button className="btn btn-primary" type="submit" disabled={savingLead || !editForm.email.trim()}>
+                  {savingLead ? "Saving…" : "Save changes"}
+                </button>
+              </div>
+            </div>
+          </form>
+        )}
+      </Modal>
     </>
   );
 }

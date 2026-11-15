@@ -3,11 +3,10 @@
  *
  * An official Sunshine Tech Solution product page (same family as
  * sunshinetechsolution.vercel.app and ideaforge-ai-omega.vercel.app):
- *   - Bright corporate hero with orange CTA pair
- *   - Product guardrails
- *   - Feature grid (what the platform does)
- *   - How it works (numbered steps)
- *   - Final CTA + professional dark footer
+ *   - Navy and teal brand palette
+ *   - Image-led workflow chapters and product guardrails
+ *   - A four-step process timeline
+ *   - Final CTA and dark footer
  *
  * The logged-in product (dashboard shell) starts at /dashboard.
  */
@@ -16,34 +15,28 @@ import Link from "next/link";
 
 const FEATURES = [
   {
-    tag: "DISCOVERY",
-    title: "AI Lead Discovery",
-    text: "Search provider-sourced prospect records with Apollo, or add contacts you already know. Fictional AI samples are clearly separated from real contacts.",
+    tag: "01 / DISCOVER",
+    title: "Find the right opportunity",
+    text: "Search provider-sourced contacts or add your own. Keep real leads organized by workspace, source, and current stage.",
+    points: ["Apollo search when configured", "Saved filters and exports", "Pipeline analytics"],
+    image: "/images/lead-discovery.jpg",
+    imageAlt: "A laptop displaying a business analytics dashboard",
   },
   {
-    tag: "OUTREACH",
-    title: "Human-reviewed Outreach",
-    text: "Generate a personalized email draft for a lead, review it, and approve before the configured mail provider sends it.",
+    tag: "02 / CONNECT",
+    title: "Make every next step intentional",
+    text: "Generate a personalized message, review it, and approve before your configured mail provider sends it. Keep conversation notes with the lead; inbox sync is not available yet.",
+    points: ["AI drafts reviewed by you", "Conversation notes stay with each lead", "Test replies are labeled as simulations"],
+    image: "/images/human-outreach.jpg",
+    imageAlt: "Coworkers talking through a project at a shared table",
   },
   {
-    tag: "AGENTS",
-    title: "On-demand AI assistance",
-    text: "Run drafting, conversation analysis, requirements extraction, and website generation when you choose each workflow action.",
-  },
-  {
-    tag: "CONVERSATIONS",
-    title: "Conversation workspace",
-    text: "Keep conversation records with each lead. Real inbox synchronization is not yet available; test replies are labeled as simulations.",
-  },
-  {
-    tag: "ANALYTICS",
-    title: "Pipeline analytics",
-    text: "Review lead stages, response activity, and acquisition sources using the records in your workspace.",
-  },
-  {
-    tag: "DEPLOYMENT",
-    title: "Website delivery",
-    text: "Extract a structured brief, generate the project files, review the source, then deploy to Vercel when ready.",
+    tag: "03 / DELIVER",
+    title: "Turn confirmed needs into a website",
+    text: "Extract a structured brief, generate project files, inspect the source, and deploy to Vercel when you are ready and it is configured.",
+    points: ["Capture requirements before building", "Review generated files first", "Deploy only when you approve"],
+    image: "/images/website-delivery.jpg",
+    imageAlt: "A desktop workstation displaying web design and code",
   },
 ];
 
@@ -132,35 +125,69 @@ export default function LandingPage() {
       {/* ── Hero ───────────────────────────────────────────────────────── */}
       <section className="landing-hero">
         <div className="landing-container">
-          <span className="landing-eyebrow">SUNSHINE TECH SOLUTION</span>
-          <h1 className="landing-hero-title">
-            From prospect to <span className="text-gradient-brand">customer-ready</span> website.
-          </h1>
-          <p className="landing-hero-text">
-            LeadForge brings prospect records, human-reviewed outreach, conversation workflows,
-            and website delivery into one workspace.
-          </p>
-          <div className="landing-hero-actions">
-            <Link href="/dashboard" className="btn btn-primary btn-lg">
-              Open dashboard
-            </Link>
-            <a href="#how-it-works" className="btn btn-secondary btn-lg">
-              See how it works
-            </a>
-          </div>
-          <p className="landing-hero-note">
-            Built for teams that sell.
-          </p>
+          <div className="landing-hero-grid">
+            <div className="landing-hero-intro">
+              <span className="landing-eyebrow">A CLEARER WAY TO GROW</span>
+              <h1 className="landing-hero-title">
+                From first prospect to <span className="text-gradient-brand">project-ready.</span>
+              </h1>
+              <p className="landing-hero-text">
+                Find prospects, prepare thoughtful outreach, manage the next conversation,
+                and turn confirmed needs into a website project — all in one workspace.
+              </p>
+            </div>
 
-          {/* Product preview card */}
+            <figure className="landing-hero-visual">
+              <img
+                src="/images/team-collaboration.jpg"
+                alt="A small team collaborating around a shared project board"
+                className="landing-hero-photo"
+                fetchPriority="high"
+              />
+              <div className="landing-photo-workflow" aria-label="LeadForge workflow">
+                <div className="landing-photo-workflow-heading">
+                  <span className="landing-photo-workflow-dot" />
+                  Your workflow, in one place
+                </div>
+                <div className="landing-photo-workflow-steps">
+                  <span><b>01</b> Find the right people</span>
+                  <span><b>02</b> Review before you send</span>
+                  <span><b>03</b> Deliver after approval</span>
+                </div>
+              </div>
+              <figcaption className="landing-photo-credit">
+                Illustrative team photography · <a href="https://unsplash.com/license" target="_blank" rel="noopener noreferrer">Unsplash License</a>
+              </figcaption>
+            </figure>
+
+            <div className="landing-hero-followthrough">
+              <div className="landing-hero-actions">
+                <Link href="/dashboard" className="btn btn-primary btn-lg">
+                  Open your workspace
+                </Link>
+                <a href="#how-it-works" className="btn btn-secondary btn-lg">
+                  Explore the workflow
+                </a>
+              </div>
+              <ul className="landing-hero-proof" aria-label="Product safeguards">
+                <li><span aria-hidden="true">✓</span> You approve every outbound email</li>
+                <li><span aria-hidden="true">✓</span> Review generated files before deployment</li>
+              </ul>
+              <p className="landing-hero-note">
+                Built by Sunshine Tech Solution.
+              </p>
+            </div>
+          </div>
+
+          {/* Illustrative interface, with no fabricated traction or customer activity. */}
           <div className="landing-preview">
             <div className="landing-preview-bar">
               <span className="landing-preview-dot"></span>
               <span className="landing-preview-dot"></span>
               <span className="landing-preview-dot"></span>
-              <span className="landing-preview-title">LeadForge AI — Dashboard</span>
+              <span className="landing-preview-title">LeadForge AI — Workflow preview</span>
               <span className="badge badge-warning" style={{ marginLeft: "auto" }}>
-                Illustrative sample data
+                Illustrative interface
               </span>
             </div>
             <div className="landing-preview-body">
@@ -175,41 +202,69 @@ export default function LandingPage() {
               <div className="landing-preview-main">
                 <div className="landing-preview-stats">
                   <div className="landing-preview-stat">
-                    <small>Total leads</small>
-                    <strong>1,248</strong>
+                    <small>Prospects</small>
+                    <strong>Workspace scoped</strong>
                   </div>
                   <div className="landing-preview-stat">
-                    <small>Qualified</small>
-                    <strong>312</strong>
+                    <small>Outreach</small>
+                    <strong>Human reviewed</strong>
                   </div>
                   <div className="landing-preview-stat">
-                    <small>Replied</small>
-                    <strong>97</strong>
+                    <small>AI examples</small>
+                    <strong>Clearly labeled</strong>
                   </div>
                   <div className="landing-preview-stat">
-                    <small>Sites built</small>
-                    <strong>28</strong>
+                    <small>Websites</small>
+                    <strong>Review before deploy</strong>
                   </div>
                 </div>
                 <div className="landing-preview-rows">
                   <div className="landing-preview-row">
-                    <span className="badge badge-primary">Qualified</span>
-                    <span>Addis Fashion House — draft awaiting review</span>
+                    <span className="badge badge-primary">Lead</span>
+                    <span>Review a prospect record</span>
                   </div>
                   <div className="landing-preview-row">
-                    <span className="badge badge-success">Replied</span>
-                    <span>Haile Health Center — conversation recorded</span>
+                    <span className="badge badge-warning">Outreach</span>
+                    <span>Approve a draft before sending</span>
                   </div>
                   <div className="landing-preview-row">
-                    <span className="badge badge-gray">New</span>
-                    <span>Ethiopian Diaspora Group — awaiting review</span>
+                    <span className="badge badge-success">Delivery</span>
+                    <span>Inspect generated files before deploy</span>
                   </div>
                 </div>
-                <p style={{ margin: "10px 0 0", color: "var(--text-tertiary)", fontSize: "12px", textAlign: "center" }}>
-                  Fictional examples only — not live customer activity.
+                <p className="landing-preview-disclaimer">
+                  Product illustration only. No live customer records, activity, or performance claims.
                 </p>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="landing-trust-section" aria-labelledby="landing-trust-title">
+        <div className="landing-container landing-trust-grid">
+          <figure className="landing-trust-visual">
+            <img
+              src="/images/workspace.jpg"
+              alt="A bright, welcoming shared workspace"
+              loading="lazy"
+            />
+            <figcaption>
+              Illustrative workspace photography · <a href="https://unsplash.com/license" target="_blank" rel="noopener noreferrer">Unsplash License</a>
+            </figcaption>
+          </figure>
+          <div className="landing-trust-copy">
+            <span className="landing-eyebrow">AUTOMATION WITH YOU IN CONTROL</span>
+            <h2 id="landing-trust-title">Useful AI. Honest boundaries.</h2>
+            <p>
+              LeadForge helps with repetitive work while keeping meaningful decisions visible
+              and in your hands.
+            </p>
+            <ul>
+              <li><span aria-hidden="true">✓</span><span><strong>Nothing sends itself.</strong> Review and approve each outreach draft.</span></li>
+              <li><span aria-hidden="true">✓</span><span><strong>No pretend inbox.</strong> Replies entered in the current workflow are identified as simulations.</span></li>
+              <li><span aria-hidden="true">✓</span><span><strong>No blind deployment.</strong> Inspect generated project files before publishing.</span></li>
+            </ul>
           </div>
         </div>
       </section>
@@ -227,20 +282,36 @@ export default function LandingPage() {
       </section>
 
       {/* ── Features ───────────────────────────────────────────────────── */}
-      <section className="landing-section" id="features">
+      <section className="landing-section landing-capabilities" id="features">
         <div className="landing-container">
-          <span className="landing-eyebrow">WHAT WE DO</span>
-          <h2 className="landing-section-title">Everything your pipeline needs</h2>
-          <p className="landing-section-text">
-            A connected product workflow with clear human review at consequential steps.
-          </p>
+          <div className="landing-section-heading">
+            <div>
+              <span className="landing-eyebrow">THE PIPELINE, CONNECTED</span>
+              <h2 className="landing-section-title">One clear path from lead to launch.</h2>
+            </div>
+            <p className="landing-section-text">
+              LeadForge brings prospecting, reviewed outreach, and website delivery into one
+              workspace — with you in control at each step.
+            </p>
+          </div>
 
           <div className="landing-feature-grid">
             {FEATURES.map((f) => (
-              <article key={f.title} className="landing-feature card">
-                <span className="landing-feature-tag">{f.tag}</span>
-                <h3>{f.title}</h3>
-                <p>{f.text}</p>
+              <article key={f.title} className="landing-feature">
+                <figure className="landing-feature-visual">
+                  <img src={f.image} alt={f.imageAlt} loading="lazy" />
+                  <figcaption>
+                    Illustrative photography · <a href="https://unsplash.com/license" target="_blank" rel="noopener noreferrer">Unsplash License</a>
+                  </figcaption>
+                </figure>
+                <div className="landing-feature-copy">
+                  <span className="landing-feature-tag">{f.tag}</span>
+                  <h3>{f.title}</h3>
+                  <p>{f.text}</p>
+                  <ul>
+                    {f.points.map((point) => <li key={point}>{point}</li>)}
+                  </ul>
+                </div>
               </article>
             ))}
           </div>
@@ -248,13 +319,15 @@ export default function LandingPage() {
       </section>
 
       {/* ── How it works ───────────────────────────────────────────────── */}
-      <section className="landing-section landing-section-alt" id="how-it-works">
+      <section className="landing-section landing-process-section" id="how-it-works">
         <div className="landing-container">
-          <span className="landing-eyebrow">HOW IT WORKS</span>
-          <h2 className="landing-section-title">From prospect to live website</h2>
-          <p className="landing-section-text">
-            Four explicit steps — with provider requirements and current product limits shown clearly.
-          </p>
+          <div className="landing-process-heading">
+            <span className="landing-eyebrow">HOW IT WORKS</span>
+            <h2 className="landing-section-title">A thoughtful workflow, start to finish.</h2>
+            <p className="landing-section-text">
+              Four visible steps — and meaningful decisions stay in your hands.
+            </p>
+          </div>
 
           <div className="landing-steps-grid">
             {STEPS.map((s, i) => (
@@ -274,14 +347,15 @@ export default function LandingPage() {
       </section>
 
       {/* ── Final CTA ──────────────────────────────────────────────────── */}
-      <section className="landing-section">
+      <section className="landing-section landing-cta-section">
         <div className="landing-container">
           <div className="landing-cta">
-            <h2>Ready to build something great?</h2>
-            <p>
-              Open your dashboard and put LeadForge AI to work on your pipeline today.
-            </p>
-            <div className="landing-hero-actions" style={{ justifyContent: "center" }}>
+            <div>
+              <span className="landing-cta-kicker">YOUR NEXT STEP</span>
+              <h2>Turn a promising lead into a project.</h2>
+              <p>Bring your pipeline and work through the process with clarity and control.</p>
+            </div>
+            <div className="landing-hero-actions">
               <Link href="/dashboard" className="btn btn-primary btn-lg">
                 Open dashboard
               </Link>

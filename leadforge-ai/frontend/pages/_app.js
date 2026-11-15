@@ -157,8 +157,8 @@ export default function App({ Component, pageProps, router }) {
   return (
     <>
       <Head>
-        <title>LeadForge AI - Automated Lead-to-Deployment Platform</title>
-        <meta name="description" content="AI-powered platform that automates lead discovery, outreach, conversations, and website deployment" />
+        <title>LeadForge AI | Lead-to-Website Workspace</title>
+        <meta name="description" content="Find prospects, review outreach, manage conversations, and deliver customer websites in one transparent workspace." />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/LeadForge AI Agent logo.png" />
       </Head>

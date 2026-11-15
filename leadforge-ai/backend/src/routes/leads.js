@@ -12,9 +12,20 @@
  */
 
 import { Router } from "express";
+import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 
 export const leadsRouter = Router();
+
+export const leadUpdateSchema = z.object({
+  name: z.string().trim().max(120).nullable().transform((value) => value === "" ? null : value).optional(),
+  email: z.string().trim().email().max(320).optional(),
+  company: z.string().trim().max(160).nullable().transform((value) => value === "" ? null : value).optional(),
+  source: z.string().trim().max(120).nullable().transform((value) => value === "" ? null : value).optional(),
+  notes: z.string().trim().max(10000).nullable().transform((value) => value === "" ? null : value).optional(),
+}).strict().refine((value) => Object.keys(value).length > 0, {
+  message: "At least one editable lead field is required",
+});
 
 /** GET /leads/summary - return bounded, aggregated dashboard data. */
 leadsRouter.get("/summary", async (req, res, next) => {
@@ -32,13 +43,16 @@ leadsRouter.get("/summary", async (req, res, next) => {
     const [statusRows, sourceRows, latestLeads, dailyRows, pendingOutreachCount, replyReadyLead, actionableProjects] = await Promise.all([
       prisma.lead.groupBy({
         by: ["status"],
+        where: { workspaceId: req.workspaceId },
         _count: { _all: true },
       }),
       prisma.lead.groupBy({
         by: ["source"],
+        where: { workspaceId: req.workspaceId },
         _count: { _all: true },
       }),
       prisma.lead.findMany({
+        where: { workspaceId: req.workspaceId },
         orderBy: { createdAt: "desc" },
         take: 5,
         select: {
@@ -60,15 +74,18 @@ leadsRouter.get("/summary", async (req, res, next) => {
         ORDER BY 1
       `,
       prisma.message.count({
-        where: { role: "AGENT", approved: false, sentAt: null },
+        where: { workspaceId: req.workspaceId, role: "AGENT", approved: false, sentAt: null },
       }),
       prisma.lead.findFirst({
-        where: { status: "REPLIED" },
+        where: { workspaceId: req.workspaceId, status: "REPLIED" },
         orderBy: { updatedAt: "desc" },
         select: { id: true, name: true, email: true, company: true },
       }),
       prisma.project.findMany({
-        where: { status: { in: ["READY_TO_BUILD", "BUILD_FAILED", "PREVIEW_READY", "DEPLOY_FAILED"] } },
+        where: {
+          workspaceId: req.workspaceId,
+          status: { in: ["READY_TO_BUILD", "BUILD_FAILED", "PREVIEW_READY", "DEPLOY_FAILED"] },
+        },
         orderBy: { updatedAt: "desc" },
         take: 1,
         select: { id: true, leadId: true, name: true, status: true },
@@ -153,6 +170,7 @@ leadsRouter.get("/search", async (req, res, next) => {
 
     const leads = await prisma.lead.findMany({
       where: {
+        workspaceId: req.workspaceId,
         OR: [
           { name: { contains: query, mode: "insensitive" } },
           { email: { contains: query, mode: "insensitive" } },
@@ -179,6 +197,7 @@ leadsRouter.get("/search", async (req, res, next) => {
 leadsRouter.get("/", async (req, res, next) => {
   try {
     const leads = await prisma.lead.findMany({
+      where: { workspaceId: req.workspaceId },
       orderBy: { createdAt: "desc" },
       include: {
         _count: { select: { conversations: true, projects: true } },
@@ -196,8 +215,38 @@ leadsRouter.post("/", async (req, res, next) => {
     const { name, email, company, source, notes } = req.body;
     if (!email) return res.status(400).json({ error: "email is required" });
 
-    const lead = await prisma.lead.create({ data: { name, email, company, source, notes } });
+    const lead = await prisma.lead.create({
+      data: { workspaceId: req.workspaceId, name, email, company, source, notes },
+    });
     res.status(201).json(lead);
+  } catch (err) {
+    if (err.code === "P2002") {
+      return res.status(409).json({ error: "A lead with this email already exists" });
+    }
+    next(err);
+  }
+});
+
+/** PATCH /leads/:id - update editable contact details and notes in this workspace. */
+leadsRouter.patch("/:id", async (req, res, next) => {
+  const parsed = leadUpdateSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      error: parsed.error.issues.map((issue) => issue.message).join(". "),
+    });
+  }
+
+  try {
+    const result = await prisma.lead.updateMany({
+      where: { id: req.params.id, workspaceId: req.workspaceId },
+      data: parsed.data,
+    });
+    if (result.count === 0) return res.status(404).json({ error: "Lead not found" });
+
+    const lead = await prisma.lead.findFirst({
+      where: { id: req.params.id, workspaceId: req.workspaceId },
+    });
+    res.json(lead);
   } catch (err) {
     if (err.code === "P2002") {
       return res.status(409).json({ error: "A lead with this email already exists" });
@@ -209,8 +258,8 @@ leadsRouter.post("/", async (req, res, next) => {
 /** GET /leads/:id - single lead with full conversation + project history. */
 leadsRouter.get("/:id", async (req, res, next) => {
   try {
-    const lead = await prisma.lead.findUnique({
-      where: { id: req.params.id },
+    const lead = await prisma.lead.findFirst({
+      where: { id: req.params.id, workspaceId: req.workspaceId },
       include: {
         conversations: { include: { messages: { orderBy: { createdAt: "asc" } } } },
         projects: true,

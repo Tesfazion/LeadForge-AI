@@ -253,6 +253,60 @@ paths:
                 $ref: '#/components/schemas/LeadWithDetails'
         '404':
           description: Lead not found
+    patch:
+      tags:
+        - Leads
+      summary: Update lead contact details
+      description: Update editable contact fields and notes for a lead in the authenticated workspace. Pipeline status is managed by workflow actions.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Lead ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 1
+              additionalProperties: false
+              properties:
+                name:
+                  type: string
+                  maxLength: 120
+                  nullable: true
+                email:
+                  type: string
+                  format: email
+                  maxLength: 320
+                company:
+                  type: string
+                  maxLength: 160
+                  nullable: true
+                source:
+                  type: string
+                  maxLength: 120
+                  nullable: true
+                notes:
+                  type: string
+                  maxLength: 10000
+                  nullable: true
+      responses:
+        '200':
+          description: Updated lead contact details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lead'
+        '400':
+          description: Invalid update fields
+        '404':
+          description: Lead not found in the authenticated workspace
+        '409':
+          description: A lead with this email already exists in the workspace
 
   /outreach/draft:
     post:

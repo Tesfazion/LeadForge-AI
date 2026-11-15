@@ -37,6 +37,7 @@ const NAV = [
     items: [
       { name: "Review outreach", href: "/outreach",    icon: "mail",   badge: true },
       { name: "Conversations", href: "/conversations", icon: "message" },
+      { name: "Email inbox", href: "/inbox", icon: "inbox" },
     ],
   },
   {
@@ -56,6 +57,7 @@ const NAV = [
     section: "Workspace",
     items: [
       { name: "Integrations",  href: "/integrations",  icon: "plugin"  },
+      { name: "Team access",  href: "/team",           icon: "team"    },
       { name: "Settings",      href: "/settings",      icon: "settings" },
     ],
   },

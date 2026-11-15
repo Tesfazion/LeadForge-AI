@@ -123,6 +123,13 @@ export const api = {
   createLead: (data) =>
     request("/leads", { method: "POST", body: JSON.stringify(data) }),
 
+  /** Update a lead's editable contact details and notes */
+  updateLead: (leadId, data) =>
+    request(`/leads/${encodeURIComponent(leadId)}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
   // --- Outreach -------------------------------------------------------------
 
   /** Ask the AI agent to draft an outreach email for a lead */
