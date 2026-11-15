@@ -26,7 +26,7 @@ export async function continueConversation(history) {
   ];
 
   const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
+    model: "openai/gpt-4o-mini",
     messages,
     temperature: 0.6,
   });

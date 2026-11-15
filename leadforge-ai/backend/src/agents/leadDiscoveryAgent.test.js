@@ -31,7 +31,10 @@ test("Apollo is reported unavailable without credentials and live search does no
 
 test("AI sample records use non-deliverable placeholder addresses", async () => {
   const originalCreate = openai.chat.completions.create;
-  openai.chat.completions.create = async () => ({
+  let requestedModel;
+  openai.chat.completions.create = async ({ model }) => {
+    requestedModel = model;
+    return {
     choices: [{
       message: {
         content: JSON.stringify({
@@ -46,12 +49,14 @@ test("AI sample records use non-deliverable placeholder addresses", async () => 
         }),
       },
     }],
-  });
+    };
+  };
 
   try {
     const [lead] = await discoverLeads({ source: "ai", count: 1 });
     assert.equal(lead.email, "sample-1@example.invalid");
     assert.match(lead.source, /fictional/);
+    assert.equal(requestedModel, "openai/gpt-4o-mini");
   } finally {
     openai.chat.completions.create = originalCreate;
   }

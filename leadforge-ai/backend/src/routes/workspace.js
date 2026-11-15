@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma.js";
 import { encryptSecret } from "../lib/secretEncryption.js";
+import { isConfiguredOpenRouterKey } from "../lib/openai.js";
 
 export const workspaceRouter = Router();
 
@@ -35,7 +36,7 @@ workspaceRouter.get("/settings", async (req, res, next) => {
         workspaceKeyConfigured: Boolean(workspace.aiKeyCiphertext),
         activeKeySource: workspace.aiKeyCiphertext
           ? "workspace"
-          : process.env.OPENAI_API_KEY ? "server" : "missing",
+          : isConfiguredOpenRouterKey(process.env.OPENAI_API_KEY) ? "server" : "missing",
       },
       billing: paymentSetup(),
     });
@@ -47,7 +48,7 @@ workspaceRouter.get("/settings", async (req, res, next) => {
 workspaceRouter.put("/ai-key", async (req, res, next) => {
   try {
     const key = typeof req.body?.apiKey === "string" ? req.body.apiKey.trim() : "";
-    if (key.length < 20 || key.length > 2048 || /\s/.test(key)) {
+    if (!isConfiguredOpenRouterKey(key) || key.length > 2048 || /\s/.test(key)) {
       return res.status(400).json({ error: "Enter a valid OpenRouter API key" });
     }
 
@@ -77,7 +78,7 @@ workspaceRouter.delete("/ai-key", async (req, res, next) => {
     });
     res.json({
       configured: false,
-      activeKeySource: process.env.OPENAI_API_KEY ? "server" : "missing",
+      activeKeySource: isConfiguredOpenRouterKey(process.env.OPENAI_API_KEY) ? "server" : "missing",
     });
   } catch (error) {
     next(error);

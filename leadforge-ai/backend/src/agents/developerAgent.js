@@ -172,7 +172,7 @@ Requirements:
 - No markdown fences, no explanation`;
 
   const completion = await openai.chat.completions.create({
-    model: "gpt-4o",  // Use latest model for better code generation
+    model: "openai/gpt-4o",  // Use latest model for better code generation
     messages: [{ role: "user", content: prompt }],
     temperature: 0.5,
   });

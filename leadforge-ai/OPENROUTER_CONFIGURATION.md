@@ -1,6 +1,8 @@
 # 🔄 OpenRouter Configuration Guide
 
 **LeadForge AI uses OpenRouter through workspace-specific BYOK or an optional server-managed fallback.**
+Agent model IDs must use OpenRouter's provider-qualified form, such as
+`openai/gpt-4o-mini` and `openai/gpt-4o`.
 
 ---
 
@@ -261,7 +263,8 @@ async function callAIWithFallback(messages) {
 ### Current Configuration (.env)
 ```env
 # Optional server-managed fallback; workspace BYOK is configured in Settings.
-OPENAI_API_KEY=
+# Put a newly issued OpenRouter key on this assignment in backend/.env.
+OPENAI_API_KEY=sk-or-v1-your-key
 AI_KEY_ENCRYPTION_KEY=
 OAUTH_STATE_SECRET=
 
@@ -316,9 +319,8 @@ OpenRouter has built-in rate limiting:
 
 ### 3. Reliability
 ```
-✅ Automatic failover to backup models
-✅ No single point of failure
-✅ Better uptime
+✅ OpenRouter offers multiple models and providers
+✅ Application-level model fallback must be implemented separately
 ```
 
 ### 4. Simplicity
@@ -335,15 +337,14 @@ OpenRouter has built-in rate limiting:
 ### What Changed
 1. ✅ Updated `backend/src/lib/openai.js` to use OpenRouter endpoint
 2. ✅ Added OpenRouter headers (HTTP-Referer, X-Title)
-3. ✅ Updated `.env` with OpenRouter API key
+3. ✅ The backend reads the server-managed fallback from `OPENAI_API_KEY`
 4. ✅ Updated `.env.example` with documentation
-5. ✅ Server auto-restarted with new configuration
+5. ✅ AI agents use provider-qualified OpenRouter model IDs
 
 ### What Stayed the Same
 ```
-✅ All agent code unchanged
 ✅ All API endpoints unchanged
-✅ All functionality works the same
+✅ Agent request/response contracts remain unchanged
 ✅ OpenAI SDK still used (just different endpoint)
 ```
 
@@ -371,9 +372,9 @@ npm run dev
 ### Expected Behavior
 ```
 ✅ API calls go to https://openrouter.ai/api/v1
-✅ All 4 agents work correctly
-✅ No errors in server logs
-✅ Responses are fast and accurate
+✅ Model IDs are provider-qualified and available through OpenRouter
+✅ A valid server-managed or saved workspace key is required for AI requests
+✅ Configuration status does not count placeholder keys as configured
 ```
 
 ---
@@ -398,12 +399,9 @@ npm run dev
 
 ### What You Have Now
 ```
-✅ OpenRouter configured and working
-✅ API key: [REDACTED — rotate this key]...da1b
-✅ Access to 50+ AI models
-✅ One API key for all models
-✅ Cost tracking and optimization
-✅ Automatic fallback options
+✅ OpenRouter is the configured AI provider
+✅ Access to models available to the configured OpenRouter account
+✅ The active server key must be assigned to `OPENAI_API_KEY`; never commit it
 ```
 
 ### Next Steps (Optional)
@@ -415,10 +413,10 @@ npm run dev
 
 ---
 
-**Your LeadForge AI platform now uses OpenRouter for flexible, cost-effective AI!** 🚀
+**Configure a valid OpenRouter key before using AI features.** 🚀
 
 ---
 
-*Last Updated: July 10, 2026*  
+*Last Updated: November 15, 2026*
 *Configuration: OpenRouter*  
-*Status: ACTIVE* ✅
+*Runtime status: depends on valid server or workspace credentials and service availability*

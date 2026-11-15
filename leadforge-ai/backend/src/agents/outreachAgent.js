@@ -20,7 +20,7 @@ Lead:
 Respond as strict JSON: {"subject": string, "body": string}`;
 
   const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
+    model: "openai/gpt-4o-mini",
     messages: [{ role: "user", content: prompt }],
     response_format: { type: "json_object" },
     temperature: 0.7,

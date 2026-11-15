@@ -265,6 +265,11 @@ export default function SettingsPage() {
               maxLength={2048}
             />
             <p className="settings-muted">
+              {ai?.workspaceKeyConfigured
+                ? "Your saved key is intentionally hidden after saving and stays active after refresh. Enter a new key only to replace it."
+                : "A saved key will be hidden after saving. The status above shows which key source is active."}
+            </p>
+            <p className="settings-muted">
               Keys are encrypted with AES-256-GCM. Configure the server’s AI_KEY_ENCRYPTION_KEY before saving.
             </p>
             <div className="settings-actions">

@@ -49,7 +49,7 @@ Respond as strict JSON matching this shape:
 }`;
 
   const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
+    model: "openai/gpt-4o-mini",
     messages: [{ role: "user", content: prompt }],
     response_format: { type: "json_object" },
     temperature: 0.2,
